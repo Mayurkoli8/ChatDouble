@@ -4,16 +4,14 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
-
-## login and auth
-
 import json
+from firebase_db import get_user_bots, add_bot, delete_bot, update_bot, register_user, login_user
 
-USER_FILE = "users.json"
+
 CHAT_DIR = "chats"
 os.makedirs(CHAT_DIR, exist_ok=True)
 
-import json
+
 ##helper to load chats history
 
 def load_chat_history(user, bot):
@@ -31,13 +29,6 @@ def save_chat_history(user, bot, history):
     with open(path, "w") as f:
         json.dump(history, f, indent=2)
 
-# Load users from file
-if "users" not in st.session_state:
-    if os.path.exists(USER_FILE):
-        with open(USER_FILE, "r") as f:
-            st.session_state.users = json.load(f)
-    else:
-        st.session_state.users = {}
 
 # Auth state
 if "logged_in" not in st.session_state:
@@ -60,11 +51,12 @@ def show_upload_ui():
     new_bot_name = st.sidebar.text_input("Bot name for this chat (e.g. John)", key="bot_name_input")
 
     if st.sidebar.button("Upload Bot"):
-        user = st.session_state.username
+        user_bots = get_user_bots(user)
         already_exists = any(
             bot["name"].lower() == new_bot_name.lower()
-            for bot in st.session_state.users[user]["bots"]
+            for bot in user_bots
         )
+
 
         if already_exists:
             st.sidebar.warning("⚠️ You already have a bot with this name.")
@@ -74,15 +66,8 @@ def show_upload_ui():
             with open(save_path, "wb") as f:
                 f.write(uploaded_file.read())
 
-            # Assign bot to user
-            st.session_state.users[user]["bots"].append({
-                "name": new_bot_name.capitalize(),
-                "file": save_path
-            })
-
-            # Save to file
-            with open(USER_FILE, "w") as f:
-                json.dump(st.session_state.users, f, indent=2)
+            # Assign bot to Firestore
+            add_bot(user, new_bot_name.capitalize(), save_path)
 
             # ✅ Do NOT clear fields manually — just rerun cleanly
             st.sidebar.success(f"✅ {new_bot_name} bot added for {user}")
@@ -92,8 +77,7 @@ def show_upload_ui():
 ## Manage my bots
 
 if st.session_state.logged_in:
-    user = st.session_state.username
-    user_bots = st.session_state.users[user]["bots"]
+    user_bots = get_user_bots(user)
 
     if "confirm_delete" not in st.session_state:
         st.session_state.confirm_delete = None
@@ -149,11 +133,7 @@ if st.session_state.logged_in:
                             os.rename(old_history, new_history)
 
                         # Update users.json
-                        st.session_state.users[user]["bots"][i]["name"] = new_name
-                        st.session_state.users[user]["bots"][i]["file"] = new_file
-
-                        with open(USER_FILE, "w") as f:
-                            json.dump(st.session_state.users, f, indent=2)
+                        update_bot(user, old_name, new_name, new_file)
 
                         st.session_state.rename_bot_index = None
                         st.success(f"✅ Renamed '{old_name}' to '{new_name}'")
@@ -181,9 +161,9 @@ if st.session_state.logged_in:
                     if os.path.exists(history_path):
                         os.remove(history_path)
 
-                    st.session_state.users[user]["bots"].pop(index)
-                    with open(USER_FILE, "w") as f:
-                        json.dump(st.session_state.users, f, indent=2)
+                    from firebase_db import delete_bot
+                    delete_bot(user, bot["name"])
+
 
                     st.session_state.confirm_delete = None
                     st.success(f"✅ Bot '{bot['name']}' deleted.")
@@ -235,10 +215,11 @@ if not st.session_state.logged_in:
     password = st.sidebar.text_input("Password", type="password")
 
     if st.sidebar.button(action):
-        users = st.session_state.users
+
+        from firebase_db import register_user, login_user
 
         if action == "Login":
-            if username in users and users[username]["password"] == password:
+            if login_user(username, password):
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.success(f"✅ Welcome back, {username}!")
@@ -247,14 +228,11 @@ if not st.session_state.logged_in:
                 st.error("❌ Invalid credentials.")
 
         elif action == "Register":
-            if username in users:
-                st.error("❌ Username already exists.")
-            else:
-                users[username] = {"password": password, "bots": []}
-                with open(USER_FILE, "w") as f:
-                    json.dump(users, f, indent=2)
-                st.session_state.users = users
+            if register_user(username, password):
                 st.success("✅ Registered. Please log in.")
+            else:
+                st.error("❌ Username already exists.")
+
 else:
     st.sidebar.success(f"👋 Logged in as: {st.session_state.username}")
     if st.sidebar.button("Logout"):
@@ -272,13 +250,16 @@ if not st.session_state.logged_in:
 
 
 # 🔹 Available bots and their chat files
+
+
 user = st.session_state.username
-user_bots = st.session_state.users[user].get("bots", [])
+user_bots = get_user_bots(user)
 
 bot_map = {
     bot["name"]: bot["file"]
     for bot in user_bots if os.path.exists(bot["file"])
 }
+
 
 
 # 🔹 Sidebar: choose bot
@@ -317,7 +298,6 @@ if bot_key not in st.session_state:
 ollama = OllamaClient()
 
 # 🧠 Chat history per bot with diffrent sessions
-user = st.session_state.username
 chat_key = f"chat_{selected_bot}_{user}"
 
 if chat_key not in st.session_state:
@@ -398,8 +378,7 @@ if st.session_state.logged_in:
     st.sidebar.subheader("📤 Download Chat History")
 
     # Get user’s bots & dropdown
-    user = st.session_state.username
-    user_bots = st.session_state.users[user]["bots"]
+
 
     if user_bots:
         bot_names = [bot["name"] for bot in user_bots]
