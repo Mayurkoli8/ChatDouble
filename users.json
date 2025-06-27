@@ -2,35 +2,5 @@
   "admin": {
     "password": "admin123",
     "bots": []
-  },
-  "firstuser": {
-    "password": "firstuser123",
-    "bots": [
-      {
-        "name": "Null1secondRename",
-        "file": "bots/chat_null1secondrename.txt"
-      },
-      {
-        "name": "Kay",
-        "file": "bots/chat_kay.txt"
-      },
-      {
-        "name": "Null1first",
-        "file": "bots/chat_null1first.txt"
-      }
-    ]
-  },
-  "seconduser": {
-    "password": "seconduser123",
-    "bots": [
-      {
-        "name": "Null1first",
-        "file": "bots/chat_null1first.txt"
-      },
-      {
-        "name": "Kay",
-        "file": "bots/seconduser_chat_kay.txt"
-      }
-    ]
   }
 }
