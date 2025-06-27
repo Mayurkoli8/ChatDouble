@@ -52,7 +52,7 @@ ChatDouble is a private AI chatbot platform that lets you create custom chatbots
 
 
 📁 **Folder Structure**
-
+```bash
 ChatDouble/
 ├── app.py
 ├── users.json
