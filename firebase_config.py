@@ -1,4 +1,8 @@
 # firebase_config.py
+import os
+cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+cred = credentials.Certificate(cred_path)
+
 
 import firebase_admin
 from firebase_admin import credentials, firestore
