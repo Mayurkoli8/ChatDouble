@@ -1,18 +1,20 @@
 # firebase_config.py
+
 import os
-cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-cred = credentials.Certificate(cred_path)
-
-
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Path to your service account key file
-cred = credentials.Certificate("chatdouble-a03c6-firebase-adminsdk-fbsvc-de00f2fc52.json")
+# Use environment variable to get path of the service account key
+cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-# Initialize app if not already initialized
+if not cred_path:
+    raise EnvironmentError("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.")
+
+cred = credentials.Certificate(cred_path)
+
+# Initialize Firebase only once
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
-# Get Firestore client
+# Firestore client
 db = firestore.client()
