@@ -44,6 +44,12 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
 
+# 🔁 Init session keys if not already set
+if "confirm_delete" not in st.session_state:
+    st.session_state.confirm_delete = None
+
+if "rename_bot_index" not in st.session_state:
+    st.session_state.rename_bot_index = None
 
 ## upload function 
 def show_upload_ui():
@@ -115,7 +121,7 @@ if st.session_state.logged_in:
                             st.session_state.clear_history_index = i
             
         # 🔁 Rename bot UI
-        if st.session_state.rename_bot_index is not None:
+        if "rename_bot_index" in st.session_state and st.session_state.rename_bot_index is not None:
             i = st.session_state.rename_bot_index
             bot = user_bots[i]
 
