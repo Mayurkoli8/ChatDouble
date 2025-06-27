@@ -53,14 +53,13 @@ ChatDouble is a private AI chatbot platform that lets you create custom chatbots
 
 📁 **Folder Structure**
 ```bash
-    ChatDouble/
-    ├── app.py
-    ├── users.json
-    ├── bots/
-    │   └── chat_<name>.txt
-    ├── chats/
-    │   └── <username>/
-    ├── requirements.txt
-    └── .streamlit/
-        └── config.toml
-    
+ChatDouble/
+├── app.py
+├── users.json
+├── bots/
+│   └── chat_<name>.txt
+├── chats/
+│   └── <username>/
+├── requirements.txt
+└── .streamlit/
+    └── config.toml
