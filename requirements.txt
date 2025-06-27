@@ -1,0 +1,5 @@
+streamlit
+faiss-cpu
+sentence-transformers
+numpy
+ollama
