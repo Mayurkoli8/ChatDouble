@@ -3,3 +3,4 @@ faiss-cpu
 sentence-transformers
 numpy
 ollama
+firebase-admin
