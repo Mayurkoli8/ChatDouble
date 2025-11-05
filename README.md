@@ -33,7 +33,6 @@ Upload your chats, name your bot, and talk to an AI version of that person power
 | Auth & Data   | [Firebase Firestore](https://firebase.google.com/docs/firestore)     |
 | Language      | Python 3.10+                                                         |
 
-Language	Python 3.10+
 
 ---
 
