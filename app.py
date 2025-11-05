@@ -1,12 +1,12 @@
 import streamlit as st
-from ollama import Client as OllamaClient
 import faiss
 from sentence_transformers import SentenceTransformer
-import numpy as np
 import os
 import json
 from firebase_db import get_user_bots, add_bot, delete_bot, update_bot, register_user, login_user
+from google import genai   # ✅ Add this line
 
+genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 CHAT_DIR = "chats"
 os.makedirs(CHAT_DIR, exist_ok=True)
@@ -28,6 +28,13 @@ def save_chat_history(user, bot, history):
     path = os.path.join(user_dir, f"{bot.lower()}.json")
     with open(path, "w") as f:
         json.dump(history, f, indent=2)
+        
+        
+##helper to rename bot
+def bot_filename(user, bot_name):
+    # consistent filename used everywhere
+    return os.path.join("bots", f"{user}_chat_{bot_name.lower()}.txt")
+
 
 
 # Auth state
@@ -56,13 +63,15 @@ def show_upload_ui():
             bot["name"].lower() == new_bot_name.lower()
             for bot in user_bots
         )
-
-
-        if already_exists:
+        if uploaded_file is None:
+            st.sidebar.error("⚠️ Please choose a .txt file first.")
+        elif not new_bot_name.strip():
+            st.sidebar.error("⚠️ Please give the bot a name.")
+        elif already_exists:
             st.sidebar.warning("⚠️ You already have a bot with this name.")
         else:
             # Save file
-            save_path = f"bots/{user}_chat_{new_bot_name.lower()}.txt"
+            save_path = bot_filename(user, new_bot_name)
             with open(save_path, "wb") as f:
                 f.write(uploaded_file.read())
 
@@ -77,7 +86,9 @@ def show_upload_ui():
 ## Manage my bots
 
 if st.session_state.logged_in:
+    user = st.session_state.username
     user_bots = get_user_bots(user)
+
 
     if "confirm_delete" not in st.session_state:
         st.session_state.confirm_delete = None
@@ -120,7 +131,7 @@ if st.session_state.logged_in:
                     else:
                         old_name = bot["name"]
                         old_file = bot["file"]
-                        new_file = f"bots/chat_{new_name.lower()}.txt"
+                        new_file = bot_filename(user, new_name)
                         new_history = os.path.join("chats", user, f"{new_name.lower()}.json")
                         old_history = os.path.join("chats", user, f"{old_name.lower()}.json")
 
@@ -293,9 +304,8 @@ if bot_key not in st.session_state:
         "lines": bot_lines,
         "embed_model": embed_model,
     }
+    
 
-# ✅ Load Ollama
-ollama = OllamaClient()
 
 # 🧠 Chat history per bot with diffrent sessions
 chat_key = f"chat_{selected_bot}_{user}"
@@ -337,23 +347,18 @@ User: {user_input}
 
 
     # 💬 Get response from Mistral
-    response = ollama.chat(
-        model="mistral",
-        messages=[
-            {
-                "role": "system",
-                "content": f"You are a real person named {selected_bot}, not a chatbot. Always reply like you've done in the past messages shown. Match tone, slang, and vibe from the examples. Never make up things beyond that style."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        options={"num_predict": 100}
-    )
+    try:
+        resp = genai_client.models.generate_content(
+            model="models/gemini-2.0-flash-exp",  # or another Gemini model you prefer
+            contents=prompt
+        )
+        # resp.text contains the generated text
+        bot_reply = resp.text.strip()
 
-    bot_reply = response['message']['content'].strip()
-
+    except Exception as e:
+        bot_reply = "⚠️ Error: the LLM failed to generate a response."
+    
+    
     # 💾 Save to history (per user + bot)
     entry = {
         "user": user_input,

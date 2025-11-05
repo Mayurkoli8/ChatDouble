@@ -1,15 +1,22 @@
+import bcrypt
 from firebase_config import db
 
 def register_user(username, password):
     doc_ref = db.collection("users").document(username)
     if doc_ref.get().exists:
         return False
-    doc_ref.set({"password": password, "bots": []})
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode("utf-8", "ignore")
+    doc_ref.set({"password": hashed, "bots": []})
     return True
 
 def login_user(username, password):
     doc = db.collection("users").document(username).get()
-    return doc.exists and doc.to_dict().get("password") == password
+    if not doc.exists:
+        return False
+    stored = doc.to_dict().get("password")
+    if not stored:
+        return False
+    return bcrypt.checkpw(password.encode(), stored.encode())
 
 def get_user_bots(username):
     doc = db.collection("users").document(username).get()
@@ -49,3 +56,5 @@ def update_bot(username, old_name, new_name, new_file_path):
             bot["file"] = new_file_path
             break
     doc_ref.update({"bots": bots})
+    
+

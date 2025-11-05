@@ -1,20 +1,16 @@
-# firebase_config.py
-
-import os
-import firebase_admin
+import streamlit as st
 from firebase_admin import credentials, firestore
+import firebase_admin
 
-# Use environment variable to get path of the service account key
-cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+# Load from Streamlit secrets
+firebase_config = dict(st.secrets["firebase_service_account"])
 
-if not cred_path:
-    raise EnvironmentError("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.")
+cred = credentials.Certificate(firebase_config)
+ 
+if not cred:
+    raise EnvironmentError("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. Set in Streamlit secret")
 
-cred = credentials.Certificate(cred_path)
-
-# Initialize Firebase only once
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
-# Firestore client
 db = firestore.client()
