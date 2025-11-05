@@ -3,36 +3,42 @@
 ChatDouble is a private AI chat platform that lets you create lifelike chatbots trained on real chat histories — like WhatsApp or Instagram exports.
 Upload your chats, name your bot, and talk to an AI version of that person powered by Google Gemini.
 
+---
+
 ### Features
 
-🔐 Custom login system (Firebase Firestore)
+> Custom login system (Firebase Firestore)
 
-🤖 Create custom bots from your chat files (.txt)
+> Create custom bots from your chat files (.txt)
 
-🧠 FAISS-based memory for realistic context recall
+> FAISS-based memory for realistic context recall
 
-💬 Gemini-powered chat responses (no local LLMs required)
+> Gemini-powered chat responses (no local LLMs required)
 
-🗂️ Manage bots: rename, delete, clear chat history
+> Manage bots: rename, delete, clear chat history
 
-💾 Offline storage for bots and chat history (/bots, /chats)
+> Offline storage for bots and chat history (/bots, /chats)
 
-📤 Download chat history in .txt or .json
+> Download chat history in .txt or .json
 
-🧩 Tech Stack
-Component	Technology
-Frontend	Streamlit
+---
 
-Vector Memory	FAISS
-
-Embeddings	Sentence Transformers
- (all-MiniLM-L6-v2)
-LLM	Gemini
- via google-genai
-Auth & Data	Firebase Firestore
+### Tech Stack
+| Component     | Technology                                                           |
+| ------------- | -------------------------------------------------------------------- |
+| Frontend      | [Streamlit](https://streamlit.io)                                    |
+| Vector Memory | [FAISS](https://github.com/facebookresearch/faiss)                   |
+| Embeddings    | [Sentence Transformers](https://www.sbert.net/) (`all-MiniLM-L6-v2`) |
+| LLM           | [Gemini](https://ai.google.dev) via `google-genai`                   |
+| Auth & Data   | [Firebase Firestore](https://firebase.google.com/docs/firestore)     |
+| Language      | Python 3.10+                                                         |
 
 Language	Python 3.10+
-🧱 Folder Structure
+
+---
+
+### Folder Structure
+```
 ChatDouble/
 │
 ├── app.py                   # Main Streamlit app
@@ -48,18 +54,26 @@ ChatDouble/
 ├── requirements.txt
 └── .streamlit/
     └── secrets.toml          # API keys & Firebase config
+```
+---
 
-⚙️ Setup Instructions
-1️⃣ Clone the Repository
+### Setup Instructions
+---
+### Clone the Repository
+```
 git clone https://github.com/Mayurkoli8/ChatDouble.git
 cd ChatDouble
+```
 
-2️⃣ Install Dependencies
+---
+
+### Install Dependencies
+```
 pip install -r requirements.txt
+```
 
-
-Make sure your requirements.txt includes:
-
+Make sure your `requirements.txt` includes:
+```
 streamlit
 faiss-cpu
 sentence-transformers
@@ -68,22 +82,26 @@ firebase-admin
 bcrypt
 google-genai
 torch
+```
+---
 
-3️⃣ Firebase Setup
+### Firebase Setup
 
-Create a Firebase project at Firebase Console
+1. Create a Firebase project at Firebase Console
 .
 
-Enable Firestore Database (for user data).
+2. Enable Firestore Database (for user data).
 
-Create a Service Account Key (⚙️ → Project Settings → Service Accounts → Generate New Key).
+3. Create a Service Account Key (⚙️ → Project Settings → Service Accounts → Generate New Key).
 
-Save the JSON key, or better — paste its contents into Streamlit secrets.
+4. Save the JSON key, or better — paste its contents into Streamlit secrets.
 
-4️⃣ Configure Streamlit Secrets
+---
+
+### Configure Streamlit Secrets
 
 Create a .streamlit/secrets.toml file:
-
+```
 GEMINI_API_KEY = "your_gemini_api_key_here"
 
 [firebase_service_account]
@@ -97,39 +115,42 @@ auth_uri = "https://accounts.google.com/o/oauth2/auth"
 token_uri = "https://oauth2.googleapis.com/token"
 auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
 client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk"
+```
 
-5️⃣ Run the App
+---
+
+### Run the App
+```
 streamlit run app.py
-
+```
 
 Then open http://localhost:8501
- in your browser.
+in your browser.
 
-🧠 How It Works
+---
 
-User Registration / Login
-Credentials are stored securely (hashed) in Firestore.
+### How It Works
 
-Bot Creation
+1. User Registration / Login
+    Credentials are stored securely (hashed) in Firestore.
 
-Upload a .txt chat file.
+2. Bot Creation
+    Upload a .txt chat file.
+    The file is saved locally in /bots/.
+    A bot entry is added to your Firestore profile.
 
-The file is saved locally in /bots/.
+3. Memory Embedding
+    FAISS + Sentence Transformers embed every chat line for semantic search.
 
-A bot entry is added to your Firestore profile.
+4. Chatting
+    When you send a message:
+        FAISS retrieves the top 20 most relevant past messages.
+        Gemini receives the context and generates a realistic reply.
 
-Memory Embedding
-FAISS + Sentence Transformers embed every chat line for semantic search.
+5. Chat History
+    Each user’s conversations are stored in `/chats/<username>/<bot>.json`
 
-Chatting
-When you send a message:
-
-FAISS retrieves the top 20 most relevant past messages.
-
-Gemini receives the context and generates a realistic reply.
-
-Chat History
-Each user’s conversations are stored in /chats/<username>/<bot>.json.
+---
 
 ### Example File Format
 
@@ -156,7 +177,7 @@ Avoid timestamps or system messages for best results.
 
 ---
 
-## License
+### License
 
 MIT — Free to use and modify.
 
