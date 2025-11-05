@@ -1,6 +1,6 @@
 ## **ChatDouble**
 
-ChatDouble is a private AI chat platform that lets you create lifelike chatbots trained on real chat histories — like WhatsApp or Instagram exports.
+ChatDouble is a private AI chat platform that lets you create lifelike chatbots trained on real chat histories, like WhatsApp or Instagram exports.
 Upload your chats, name your bot, and talk to an AI version of that person powered by Google Gemini.
 
 ---
