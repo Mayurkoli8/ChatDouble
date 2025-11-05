@@ -1,9 +1,9 @@
-🧠 ChatDouble
+**ChatDouble**
 
 ChatDouble is a private AI chat platform that lets you create lifelike chatbots trained on real chat histories — like WhatsApp or Instagram exports.
 Upload your chats, name your bot, and talk to an AI version of that person powered by Google Gemini.
 
-🚀 Features
+### Features
 
 🔐 Custom login system (Firebase Firestore)
 
@@ -134,24 +134,27 @@ Each user’s conversations are stored in /chats/<username>/<bot>.json.
 ### Example File Format
 
 Each line of your uploaded .txt file should look like this:
-
+```
 You: hey what’s up?
 John: nothing much bro
 You: let’s meet tomorrow
 John: sure, same place?
-
-
+```
 Avoid timestamps or system messages for best results.
+
+---
 
 ### Future Enhancements
 
->>> Optional Firebase Storage for cloud chat files
+> Optional Firebase Storage for cloud chat files
 
->>> Multi-device sync for chat history
+> Multi-device sync for chat history
 
->>> Fine-tuning mode for stronger personality capture
+> Fine-tuning mode for stronger personality capture
 
->>> Real-time streaming responses from Gemini
+> Real-time streaming responses from Gemini
+
+---
 
 ## License
 
