@@ -9,7 +9,8 @@ from sentence_transformers import SentenceTransformer
 import faiss
 
 # Use the same import shape you used earlier:
-from google import genai
+import google.genai as genai
+
 
 # firebase_db functions you already have in project:
 from firebase_db import (
@@ -340,13 +341,13 @@ else:
     with tabs[0]:
         user = st.session_state.username
         user_bots = get_user_bots(user)
-    
+
         if not user_bots:
             st.info("No bots yet. Create one in Manage tab.")
             st.stop()
-    
+
         col_main, col_side = st.columns([2, 0.9])
-    
+
         # Right side bot list
         with col_side:
             st.markdown("<div class='card'><b>Your Bots</b></div>", unsafe_allow_html=True)
@@ -356,11 +357,11 @@ else:
                     f"<b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div>",
                     unsafe_allow_html=True
                 )
-    
+
         # Left side main chat
         with col_main:
             selected_bot = st.selectbox("Select bot", [b["name"] for b in user_bots], key="chat_selected_bot")
-    
+
             # Load bot file
             res = get_bot_file(user, selected_bot)
             if isinstance(res, (list, tuple)):
@@ -369,24 +370,24 @@ else:
             else:
                 bot_text = res
                 persona = ""
-    
+
             if not bot_text.strip():
                 st.warning("Bot has no data.")
                 st.stop()
-    
+
             embed_model, index, bot_lines = build_faiss_for_bot(bot_text)
-    
+
             chat_key = f"chat_{selected_bot}_{user}"
             if chat_key not in st.session_state:
                 st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot) or []
-    
+
             # Header
             st.markdown(
                 f"<div class='chat-header'><div class='title'>{selected_bot}</div>"
                 f"<div class='subtitle'>Persona: {persona or '—'}</div></div>",
                 unsafe_allow_html=True
             )
-    
+
             # CHAT CARD
             messages = st.session_state[chat_key]
             html_messages = ""
@@ -396,7 +397,7 @@ else:
                     html_messages += f"<div class='msg-row'><div class='msg user'>{m['user']}<span class='ts'>{ts}</span></div></div>"
                 if m.get("bot"):
                     html_messages += f"<div class='msg-row'><div class='msg bot'>{m['bot']}<span class='ts'>{ts}</span></div></div>"
-    
+
             st.markdown(
                 f"""
                 <div class='chat-card'>
@@ -407,7 +408,7 @@ else:
                 """,
                 unsafe_allow_html=True
             )
-    
+
             # Auto-scroll bottom
             st.markdown("""
             <script>
@@ -417,50 +418,54 @@ else:
             }, 50);
             </script>
             """, unsafe_allow_html=True)
-    
+
             # INPUT BAR
             colA, colB = st.columns([9, 1])
             with colA:
                 user_msg = st.text_input("Type…", key="chat_input_box", label_visibility="collapsed")
             with colB:
                 send = st.button("➤", key="send_chat_btn")
-    
+
             if send and user_msg.strip():
                 ts = datetime.now().strftime("%I:%M %p")
                 st.session_state[chat_key].append({"user": user_msg, "bot": "...thinking", "ts": ts})
                 save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-    
+
                 # Retrieval
                 vec = embed_model.encode([user_msg])
                 _, idxs = index.search(vec, k=20)
                 retrieved = "\n".join([bot_lines[i] for i in idxs[0] if i < len(bot_lines)])[:2000]
-    
+
                 prompt = f"""
     Persona: {persona}
-    
+
     You are {selected_bot}. You talk EXACTLY like before.
     Never act like an assistant.
-    
+
     Examples:
     {retrieved}
-    
+
     User: {user_msg}
     {selected_bot}:
     """
-    
+
                 reply = "..."
-    
+
                 try:
-                    r = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
-                    reply = r.text or "⚠️ Empty response."
+                    resp = genai_client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=prompt
+                )
+
+                    reply = resp.text or "⚠️Offline (Text after sometime)."
                 except Exception as e:
                     reply = f"⚠️ Error: {e}"
-    
+
                 st.session_state[chat_key][-1]["bot"] = reply
                 st.session_state[chat_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
                 save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
                 st.rerun()
-    
+
     # ----- Manage Bots tab -----
     with tabs[1]:
         if not st.session_state.logged_in:
