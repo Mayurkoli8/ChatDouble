@@ -480,29 +480,40 @@ with tabs[2]:
 
 
 # ----- Buy Lollipop tab -----
+# ----- Buy Lollipop tab -----
 with tabs[3]:
     st.markdown("<div class='card'><h4>Buy developer a lollipop 🍭</h4>", unsafe_allow_html=True)
+
     upi_id = st.secrets.get("upi_id") if st.secrets else None
     upi_qr_url = st.secrets.get("upi_qr_url") if st.secrets else None
     upi_qr_b64 = st.secrets.get("upi_qr_base64") if st.secrets else None
 
+    # ✅ handle base64-encoded QR
     if upi_qr_b64:
         try:
             img_bytes = base64.b64decode(upi_qr_b64)
             st.image(img_bytes, width=220)
         except Exception:
-            st.info("Invalid base64 QR in secrets.")
-    elif upi_qr_url:
-        st.image(upi_qr_url, width=220)
-    else:
-        st.info("No QR configured. Put `upi_qr_url` or `upi_qr_base64` in Streamlit secrets.")
+            st.info("⚠️ Invalid base64 QR in secrets — please check your `upi_qr_base64` value.")
 
+    # ✅ handle external URL QR (http/https only)
+    elif upi_qr_url and isinstance(upi_qr_url, str):
+        if upi_qr_url.lower().startswith("http"):
+            st.image(upi_qr_url, width=220)
+        else:
+            st.info("⚠️ Invalid `upi_qr_url` format — must start with http/https (not a local path).")
+
+    # ✅ no QR configured
+    else:
+        st.info("No QR configured. Add `upi_qr_url` or `upi_qr_base64` in Streamlit secrets.")
+
+    # ✅ UPI ID display
     if upi_id:
         st.markdown(f"**UPI ID:** `{upi_id}`")
     else:
         st.markdown("Add `upi_id` to Streamlit secrets to show UPI ID.")
 
-    st.markdown("<div class='small-muted'>Tip: add secrets via Streamlit Cloud dashboard (Settings → Secrets) to show QR & UPI ID publicly in this tab.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='small-muted'>Tip: add secrets via Streamlit Cloud → Settings → Secrets to show QR & UPI ID publicly in this tab.</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
