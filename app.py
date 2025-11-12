@@ -249,19 +249,19 @@ if not st.session_state.logged_in:
     st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
     st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
 
-     st.markdown("<div class='card' style='padding:18px; margin-bottom:14px'>", unsafe_allow_html=True)
+    st.markdown("<div class='card' style='padding:18px; margin-bottom:14px'>", unsafe_allow_html=True)
     st.markdown("<h3 style='margin:0;color:#fff'>How it works</h3>", unsafe_allow_html=True)
     st.markdown("<ul><li>Upload a chat export (.txt) in Manage tab</li><li>We extract that person's messages and create a bot</li><li>Chat — replies mimic their tone</li></ul>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-     c1, c2 = st.columns([2, 1])
+    c1, c2 = st.columns([2, 1])
     with c2:
         st.markdown("<div class='card'><h4>Your Quick Start</h4><ol><li>Register / Login (sidebar)</li><li>Upload a chat in Manage</li><li>Open Chat tab and select bot</li></ol></div>", unsafe_allow_html=True)
     with c1:
         if st.button("🚀 Get Started — Login or Register"):
             st.session_state.show_inline_login = True
 
-     if st.session_state.show_inline_login and not st.session_state.logged_in:
+    if st.session_state.show_inline_login and not st.session_state.logged_in:
         st.markdown("<div class='card' style='max-width:480px;margin-top:18px'>", unsafe_allow_html=True)
         st.subheader("Quick Login")
         h_user = st.text_input("Username", key="home_user")
