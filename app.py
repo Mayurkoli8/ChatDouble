@@ -56,7 +56,7 @@ def show_upload_ui():
         content = uploaded_file.read().decode("utf-8", "ignore")
         add_bot(st.session_state.username, new_bot_name.capitalize(), content)
         st.sidebar.success(f"✅ Bot '{new_bot_name}' added!")
-        st.experimental_rerun()
+        st.rerun()
 
 
 # =========================================================
@@ -75,7 +75,7 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.success(f"✅ Welcome back, {username}!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("❌ Invalid credentials.")
         else:
@@ -87,7 +87,7 @@ else:
     st.sidebar.success(f"👋 Logged in as {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
-        st.experimental_rerun()
+        st.rerun()
 
 if not st.session_state.logged_in:
     st.stop()
@@ -144,7 +144,7 @@ if st.session_state.rename_bot_index is not None:
             update_bot(user, bot["name"], new_name)
             st.session_state.rename_bot_index = None
             st.sidebar.success(f"✅ Renamed to {new_name}")
-            st.experimental_rerun()
+            st.rerun()
     with col2:
         if st.sidebar.button("❌ Cancel"):
             st.session_state.rename_bot_index = None
@@ -160,7 +160,7 @@ if st.session_state.confirm_delete is not None:
             delete_bot(user, bot["name"])
             st.session_state.confirm_delete = None
             st.sidebar.success("✅ Deleted successfully")
-            st.experimental_rerun()
+            st.rerun()
     with col2:
         if st.sidebar.button("❌ Cancel"):
             st.session_state.confirm_delete = None
@@ -176,7 +176,7 @@ if "clear_history_index" in st.session_state and st.session_state.clear_history_
             save_chat_history_cloud(user, bot["name"], [])
             st.session_state.clear_history_index = None
             st.sidebar.success(f"✅ Cleared history for {bot['name']}")
-            st.experimental_rerun()
+            st.rerun()
     with col2:
         if st.sidebar.button("❌ Cancel Clear"):
             st.session_state.clear_history_index = None
@@ -252,7 +252,7 @@ User: {user_input}
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
 
-    st.experimental_rerun()
+    st.rerun()
 
 
 # =========================================================
