@@ -68,6 +68,30 @@ os.makedirs("chats", exist_ok=True)
 # =========================================================
 # 🤖 Helper: Generate Persona Description
 # =========================================================
+
+def extract_bot_lines(raw_text, bot_name):
+    """
+    Extracts only the lines said by the bot from a chat file.
+    Looks for lines that start with 'BotName:' or that are responses
+    following a user line.
+    """
+    bot_lines = []
+    name_lower = bot_name.lower()
+
+    for line in raw_text.splitlines():
+        if not line or len(line.strip()) < 2:
+            continue
+        l = line.strip()
+        if ":" in l:
+            prefix, rest = l.split(":", 1)
+            if prefix.strip().lower() == name_lower:
+                bot_lines.append(rest.strip())
+        elif len(l.split()) > 3:
+            bot_lines.append(l)
+
+    bot_lines = [b for b in bot_lines if len(b.split()) > 2]
+    return "\n".join(bot_lines)
+    
 def generate_persona(text_examples):
     if not text_examples.strip():
         return ""
@@ -287,7 +311,7 @@ User: {user_input}
     except Exception as e:
         st.error(f"⚠️ Gemini error: {e}")
         bot_reply = "⚠️ Error generating response."
-    
+
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
     st.rerun()
