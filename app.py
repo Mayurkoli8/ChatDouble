@@ -76,42 +76,68 @@ footer { visibility: hidden; }
 /* chat window / WhatsApp look */
 /* Chat container card */
 .chat-card {
-  background: linear-gradient(180deg, #0b0c10, #0a0a0c);
-  border-radius: 14px;
-  padding: 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-  height: 75vh;
+  background: #0d0d11;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  height: 75vh;              /* fixed chat height */
   display: flex;
   flex-direction: column;
+  overflow: hidden;          /* keep everything inside */
+  position: relative;
 }
 
-/* Inner scrollable chat area */
+/* Scrollable area for messages */
 .chat-window {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: 10px;
-  padding: 12px;
+  padding: 18px 16px 10px 16px;
   scroll-behavior: smooth;
 }
 
-/* Ensure scrollbar invisible but functional */
+/* Hide scrollbars for clean look */
 .chat-window::-webkit-scrollbar {
-  width: 0px;
+  width: 6px;
+}
+.chat-window::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 10px;
 }
 
-/* message bubbles */
-.msg-row { display:flex; width:100%; }
-.msg { padding:12px 14px; border-radius:16px; max-width:72%; font-size:15px; line-height:1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
-.msg.bot { background:#ffffff; color:#111; border-radius:16px 16px 16px 6px; align-self:flex-start; }
-.msg.user { background: linear-gradient(90deg,#25D366,#128C7E); color:#fff; border-radius:16px 16px 6px 16px; align-self:flex-end; margin-left:auto; }
-
-/* error message bubble */
-.msg.error { background:#2b2b33; color:#ffcc66; align-self:center; border-radius:10px; }
-
-/* timestamp small */
-.ts { display:block; font-size:11px; color:#9aa3b2; margin-top:8px; }
+/* Message bubbles */
+.msg-row { display: flex; }
+.msg.user {
+  align-self: flex-end;
+  background: linear-gradient(90deg,#25D366,#128C7E);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 18px 18px 4px 18px;
+  margin-left: auto;
+  max-width: 70%;
+  word-wrap: break-word;
+  font-size: 15px;
+}
+.msg.bot {
+  align-self: flex-start;
+  background: #fff;
+  color: #111;
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 4px;
+  margin-right: auto;
+  max-width: 70%;
+  word-wrap: break-word;
+  font-size: 15px;
+}
+.ts {
+  display: block;
+  font-size: 10px;
+  color: #999;
+  margin-top: 4px;
+  text-align: right;
+}
 
 /* input row */
 .input-row { display:flex; gap:10px; margin-top:12px; }
@@ -363,39 +389,38 @@ else:
     
             # header
             st.markdown(f"<div class='chat-header'><div class='title'>{selected_bot}</div><div class='subtitle'>Persona: {persona or '—'}</div></div>", unsafe_allow_html=True)
-    
-            # chat window
-            st.markdown("""
-            <div class='chat-card'>
-            <div class='chat-window' id='chat-window'>
-            """, unsafe_allow_html=True)
 
-            # render messages
+            # Chat message area (inside card)
+            st.markdown("<div class='chat-card'>", unsafe_allow_html=True)
+            st.markdown("<div class='chat-window' id='chat-window'>", unsafe_allow_html=True)
+
+            # render chat messages
             for entry in st.session_state[chat_key]:
                 ts = entry.get("ts", datetime.now().strftime("%I:%M %p"))
                 if entry.get("user"):
                     st.markdown(
-                        f"<div class='msg-row' style='justify-content:flex-end;'><div class='msg user'>{entry['user']}<span class='ts'>{ts}</span></div></div>",
+                        f"<div class='msg-row'><div class='msg user'>{entry['user']}<span class='ts'>{ts}</span></div></div>",
                         unsafe_allow_html=True,
                     )
                 if entry.get("bot"):
                     st.markdown(
-                        f"<div class='msg-row' style='justify-content:flex-start;'><div class='msg bot'>{entry['bot']}<span class='ts'>{ts}</span></div></div>",
+                        f"<div class='msg-row'><div class='msg bot'>{entry['bot']}<span class='ts'>{ts}</span></div></div>",
                         unsafe_allow_html=True,
                     )
 
-            # Close divs
+            # close divs
             st.markdown("</div></div>", unsafe_allow_html=True)
 
-            # Add JS auto-scroll to bottom
+            # Scroll to bottom of chat (JS injection)
             st.markdown("""
             <script>
-            const chatWindow = window.parent.document.querySelector('#chat-window');
-            if (chatWindow) {
-                chatWindow.scrollTop = chatWindow.scrollHeight;
+            const chatWin = window.parent.document.querySelector("#chat-window");
+            if (chatWin) {
+              chatWin.scrollTop = chatWin.scrollHeight;
             }
             </script>
             """, unsafe_allow_html=True)
+
 
             # input row
             st.markdown("<div class='input-row'>", unsafe_allow_html=True)
@@ -650,7 +675,7 @@ User: {user_input}
         return
 
     # choose model conservatively
-    model_name = "gemini-2.0"  # general model; change if you prefer flash versions
+    model_name = "gemini-2.0-flash-exp"  # general model; change if you prefer flash versions
     try:
         # use streaming if available in your genai client
         resp_iter = genai_client.models.generate_content_stream(model=model_name, contents=prompt)
