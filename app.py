@@ -29,30 +29,29 @@ st.markdown("""
 <style>
 #MainMenu, header, footer {visibility:hidden;}
 
-/* Background */
 [data-testid="stAppViewContainer"] {
   background: radial-gradient(circle at top right, #121218, #0a0a0c);
   color: #e6eef8;
   font-family: 'Inter', sans-serif;
+  height: 100vh;
+  overflow: hidden;
 }
 
-/* Sidebar */
 section[data-testid="stSidebar"] > div:first-child {
   background: linear-gradient(180deg,#0e0e12,#121217);
   padding: 16px;
   border-radius: 10px;
 }
 
-/* Chat container */
-.whatsapp-container {
-  max-width: 880px;
-  margin: 0 auto;
-  background: transparent;
+/* main wrapper */
+.main-chat-container {
   display: flex;
   flex-direction: column;
-  height: 80vh;
   justify-content: flex-end;
-  padding: 8px;
+  height: 92vh;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 12px;
 }
 
 /* Chat header */
@@ -86,15 +85,14 @@ section[data-testid="stSidebar"] > div:first-child {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: 10px;
   scroll-behavior: smooth;
+  height: 100%;
 }
 
 /* Messages */
-.msg-row {
-  display: flex;
-  align-items: flex-end;
-}
+.msg-row { display: flex; align-items: flex-end; }
 .msg.user {
   background: linear-gradient(90deg,#25D366,#128C7E);
   color: #fff;
@@ -106,7 +104,7 @@ section[data-testid="stSidebar"] > div:first-child {
   box-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 .msg.bot {
-  background: #ffffff;
+  background: #fff;
   color: #111;
   padding: 10px 14px;
   border-radius: 18px 18px 18px 4px;
@@ -125,8 +123,6 @@ section[data-testid="stSidebar"] > div:first-child {
   font-size: 13px;
   opacity: 0.85;
 }
-
-/* Timestamp */
 .timestamp {
   font-size: 11px;
   color: #999;
@@ -134,7 +130,7 @@ section[data-testid="stSidebar"] > div:first-child {
   text-align: right;
 }
 
-/* Input area */
+/* Input bar */
 .chat-input {
   display: flex;
   gap: 10px;
@@ -344,16 +340,47 @@ with st.sidebar:
 # Home screen + inline login
 # ---------------------------
 def render_home():
-    st.markdown("<div class='whatsapp-container card'>", unsafe_allow_html=True)
-    st.markdown("<div style='display:flex;align-items:center;gap:14px;'><div style='width:56px;height:56px;border-radius:12px;background:#6c63ff;display:flex;align-items:center;justify-content:center;font-weight:700'>CD</div><div><h2 style='margin:0;color:#fff'>ChatDouble</h2><div class='small-muted'>Bring your friends back to chat — private, personal bots from your chat exports.</div></div></div>", unsafe_allow_html=True)
-    st.markdown("<div class='home-divider'></div>", unsafe_allow_html=True)
-    st.markdown("<div style='display:flex;gap:12px;'><div style='flex:1'><div class='card'><h3>How it works</h3><ul style='margin-left:1em'><li>Upload chat export (.txt)</li><li>We extract that person’s messages and create a bot</li><li>Chat — replies mimic their tone</li></ul></div></div><div style='width:320px'><div class='card'><h3>Quick Start</h3><ol><li>Register / Login (sidebar)</li><li>Upload a chat (sidebar)</li><li>Open a bot and start chatting</li></ol></div></div></div>", unsafe_allow_html=True)
+    # Wrapper for nice centered home screen
+    st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
+
+    # Header section
+    st.markdown("""
+    <div class='chat-header'>
+        <div class='title'>ChatDouble</div>
+        <div class='persona'>Bring your friends back to chat — private, personal bots from your chat exports.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Intro cards
+    st.markdown("""
+    <div class='chat-window'>
+        <div style='display:flex;gap:12px;flex-wrap:wrap;'>
+            <div class='card' style='flex:1;min-width:260px;'>
+                <h3>How it works</h3>
+                <ul style='margin-left:1em'>
+                    <li>Upload chat export (.txt)</li>
+                    <li>We extract that person’s messages and create a bot</li>
+                    <li>Chat — replies mimic their tone</li>
+                </ul>
+            </div>
+            <div class='card' style='width:320px;min-width:260px;'>
+                <h3>Quick Start</h3>
+                <ol>
+                    <li>Register / Login (sidebar)</li>
+                    <li>Upload a chat (sidebar)</li>
+                    <li>Open a bot and start chatting</li>
+                </ol>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    # interactive CTA that reveals inline login (works on all screens)
+
+    # Interactive CTA
     if st.button("🚀 Get Started — Login or Register"):
         st.session_state.show_login_on_home = True
 
+    # Inline login form (hidden until clicked)
     if st.session_state.get("show_login_on_home"):
         st.markdown("<div class='card' style='max-width:460px;margin:20px auto;padding:16px;'>", unsafe_allow_html=True)
         st.subheader("🔐 Quick Login / Register")
@@ -370,10 +397,9 @@ def render_home():
                         st.session_state.username = home_user
                         st.session_state.show_login_on_home = False
                         st.success(f"Welcome back, {home_user}!")
-                        st.rerun()
+                        st.experimental_rerun()
                     else:
                         st.error("❌ Invalid credentials.")
-
         with c2:
             if st.button("Register", key="home_reg_btn"):
                 if not home_user.strip() or not home_pass.strip():
@@ -383,10 +409,9 @@ def render_home():
                         st.success("✅ Registered successfully! Please log in.")
                     else:
                         st.error("❌ Username already exists.")
-
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 # Show home when not logged in
 if not st.session_state.logged_in:
