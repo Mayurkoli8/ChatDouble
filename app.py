@@ -458,8 +458,18 @@ else:
                 )
 
                     reply = resp.text or "⚠️Offline (Text after sometime)."
-                except Exception as e:
-                    reply = f"⚠️ Error: {e}"
+                    
+                except Exception:
+                # Fallback model
+                try:
+                    resp = genai_client.models.generate_content(
+                        model="gemini-2.0-flash-exp",
+                        contents=prompt
+                    )
+                    reply = resp.text.strip()
+
+                    except Exception as e:
+                        reply = f"⚠️ Error: {e}"
 
                 st.session_state[chat_key][-1]["bot"] = reply
                 st.session_state[chat_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
