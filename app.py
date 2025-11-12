@@ -390,37 +390,58 @@ else:
             # header
             st.markdown(f"<div class='chat-header'><div class='title'>{selected_bot}</div><div class='subtitle'>Persona: {persona or '—'}</div></div>", unsafe_allow_html=True)
 
-            # Chat message area (inside card)
-            st.markdown("<div class='chat-card'>", unsafe_allow_html=True)
-            st.markdown("<div class='chat-window' id='chat-window'>", unsafe_allow_html=True)
-
-            # render chat messages
-            for entry in st.session_state[chat_key]:
+            # ---------------------------
+            # Chat message area (render as a single HTML block so messages stay inside the card)
+            # ---------------------------
+            messages = st.session_state.get(chat_key, [])
+            # build html for messages (chronological)
+            msgs_html = []
+            for entry in messages:
                 ts = entry.get("ts", datetime.now().strftime("%I:%M %p"))
+                # user on right
                 if entry.get("user"):
-                    st.markdown(
-                        f"<div class='msg-row'><div class='msg user'>{entry['user']}<span class='ts'>{ts}</span></div></div>",
-                        unsafe_allow_html=True,
+                    safe_user = str(entry["user"]).replace("<", "&lt;").replace(">", "&gt;")
+                    msgs_html.append(
+                        f"<div class='msg-row'><div class='msg user'>{safe_user}<span class='ts'>{ts}</span></div></div>"
                     )
+                # bot on left
                 if entry.get("bot"):
-                    st.markdown(
-                        f"<div class='msg-row'><div class='msg bot'>{entry['bot']}<span class='ts'>{ts}</span></div></div>",
-                        unsafe_allow_html=True,
+                    safe_bot = str(entry["bot"]).replace("<", "&lt;").replace(">", "&gt;")
+                    msgs_html.append(
+                        f"<div class='msg-row'><div class='msg bot'>{safe_bot}<span class='ts'>{ts}</span></div></div>"
                     )
-
-            # close divs
-            st.markdown("</div></div>", unsafe_allow_html=True)
-
-            # Scroll to bottom of chat (JS injection)
+            
+            all_html = (
+                "<div class='chat-card'>"
+                "<div class='chat-window' id='chat-window'>"
+                + "".join(msgs_html) +
+                "</div></div>"
+            )
+            
+            st.markdown(all_html, unsafe_allow_html=True)
+            
+            # Auto-scroll to bottom — use document, not window.parent
+            # (Streamlit executes this after the element is added)
             st.markdown("""
             <script>
-            const chatWin = window.parent.document.querySelector("#chat-window");
-            if (chatWin) {
-              chatWin.scrollTop = chatWin.scrollHeight;
-            }
+            (function() {
+              function scrollChatToBottom() {
+                try {
+                  const chatWin = document.getElementById("chat-window");
+                  if (chatWin) {
+                    chatWin.scrollTop = chatWin.scrollHeight;
+                  }
+                } catch (e) {
+                  // fail silently
+                  console.log("scroll error", e);
+                }
+              }
+              // run after a short timeout to let Streamlit mount HTML
+              setTimeout(scrollChatToBottom, 60);
+            })();
             </script>
             """, unsafe_allow_html=True)
-
+            
 
             # input row
             st.markdown("<div class='input-row'>", unsafe_allow_html=True)
