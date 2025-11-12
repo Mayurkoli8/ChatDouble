@@ -9,8 +9,7 @@ from sentence_transformers import SentenceTransformer
 import faiss
 
 # Use the same import shape you used earlier:
-import google.generativeai as genai
-
+from google import genai
 
 # firebase_db functions you already have in project:
 from firebase_db import (
