@@ -40,7 +40,7 @@ def show_upload_ui():
         content = uploaded_file.read().decode("utf-8", "ignore")
         add_bot(st.session_state.username, new_bot_name.capitalize(), content)
         st.sidebar.success(f"✅ Bot '{new_bot_name}' added!")
-        st.experimental_rerun()
+        st.rerun()
 
 
 # --- AUTH ---
@@ -57,7 +57,7 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.success(f"Welcome back, {username}!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("❌ Invalid credentials.")
         else:
@@ -69,7 +69,7 @@ else:
     st.sidebar.success(f"👋 Logged in as {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
-        st.experimental_rerun()
+        st.rerun()
 
 
 if not st.session_state.logged_in:
@@ -142,7 +142,7 @@ User: {user_input}
 
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-    st.experimental_rerun()
+    st.rerun()
 
 
 # Upload new bot option
