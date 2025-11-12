@@ -1,8 +1,8 @@
 import streamlit as st
 import faiss
-from sentence_transformers import SentenceTransformer
 import os
 import json
+from sentence_transformers import SentenceTransformer
 from google import genai
 from firebase_db import (
     get_user_bots, add_bot, delete_bot, update_bot,
@@ -11,90 +11,63 @@ from firebase_db import (
 )
 
 # =========================================================
+# 🌟 PAGE CONFIG & STYLES
+# =========================================================
+st.set_page_config(page_title="ChatDouble", page_icon="🤖", layout="wide")
+
+st.markdown("""
+<style>
+    body {
+        background: linear-gradient(135deg, #0e0e10, #1c1c1f);
+        color: #fff;
+        font-family: 'Inter', sans-serif;
+    }
+    .stChatMessage {
+        padding: 10px 16px;
+        border-radius: 12px;
+        margin: 8px 0;
+        line-height: 1.5;
+        font-size: 16px;
+    }
+    .stChatMessage.user {
+        background-color: #27293d;
+        border-left: 4px solid #6c63ff;
+    }
+    .stChatMessage.assistant {
+        background-color: #191a24;
+        border-left: 4px solid #ffb347;
+    }
+    .sidebar .sidebar-content {
+        background: #141416;
+        color: white;
+    }
+    .stButton>button {
+        border-radius: 8px;
+        background-color: #6c63ff !important;
+        color: white !important;
+        border: none;
+    }
+    .stButton>button:hover {
+        background-color: #554efc !important;
+        color: white !important;
+    }
+    .stTextInput>div>div>input {
+        background-color: #1a1b25;
+        color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# =========================================================
 # 🔑 Initialize Gemini
 # =========================================================
 api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
 genai_client = genai.Client(api_key=api_key)
 
-# =========================================================
-# 🗂️ Ensure local dirs exist (used for temp caching)
-# =========================================================
 os.makedirs("chats", exist_ok=True)
 
 # =========================================================
-# 🔐 Session Setup
-# =========================================================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-
-if "confirm_delete" not in st.session_state:
-    st.session_state.confirm_delete = None
-
-if "rename_bot_index" not in st.session_state:
-    st.session_state.rename_bot_index = None
-
-
-# =========================================================
-# 📂 Upload Bot UI
-# =========================================================
-def show_upload_ui():
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("📂 Upload New Chat File")
-
-    uploaded_file = st.sidebar.file_uploader("Upload a .txt file", type=["txt"], key="file_upload")
-    new_bot_name = st.sidebar.text_input("Bot name (e.g. John)", key="bot_name_input")
-
-    if st.sidebar.button("Upload Bot"):
-        if uploaded_file is None:
-            st.sidebar.error("⚠️ Please choose a file.")
-            return
-        if not new_bot_name.strip():
-            st.sidebar.error("⚠️ Please enter a bot name.")
-            return
-
-        content = uploaded_file.read().decode("utf-8", "ignore")
-        add_bot(st.session_state.username, new_bot_name.capitalize(), content)
-        st.sidebar.success(f"✅ Bot '{new_bot_name}' added!")
-        st.rerun()
-
-
-# =========================================================
-# 🔐 Authentication Panel
-# =========================================================
-st.sidebar.title("🔐 Login / Register")
-
-if not st.session_state.logged_in:
-    action = st.sidebar.radio("Choose", ["Login", "Register"])
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-
-    if st.sidebar.button(action):
-        if action == "Login":
-            if login_user(username, password):
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.success(f"✅ Welcome back, {username}!")
-                st.rerun()
-            else:
-                st.error("❌ Invalid credentials.")
-        else:
-            if register_user(username, password):
-                st.success("✅ Registered successfully! Please log in.")
-            else:
-                st.error("❌ Username already exists.")
-else:
-    st.sidebar.success(f"👋 Logged in as {st.session_state.username}")
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.rerun()
-
-if not st.session_state.logged_in:
-    st.stop()
-
-
-# =========================================================
-# ⚡ Cached FAISS builder for speed
+# 🧠 Helper - FAISS Caching
 # =========================================================
 @st.cache_resource(show_spinner=False)
 def load_faiss_index(bot_text):
@@ -107,7 +80,70 @@ def load_faiss_index(bot_text):
 
 
 # =========================================================
-# 🤖 Bot Management Panel
+# 🔐 Session Setup
+# =========================================================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+
+# =========================================================
+# 📂 Upload Bot Function
+# =========================================================
+def show_upload_ui():
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📂 Upload New Chat File")
+
+    uploaded_file = st.sidebar.file_uploader("Upload a .txt file", type=["txt"])
+    new_bot_name = st.sidebar.text_input("Bot name (e.g. John)")
+
+    if st.sidebar.button("Upload Bot"):
+        if not uploaded_file:
+            st.sidebar.error("⚠️ Please upload a chat file.")
+            return
+        if not new_bot_name.strip():
+            st.sidebar.error("⚠️ Please enter a name for your bot.")
+            return
+
+        content = uploaded_file.read().decode("utf-8", "ignore")
+        add_bot(st.session_state.username, new_bot_name.capitalize(), content)
+        st.sidebar.success(f"✅ {new_bot_name} added successfully!")
+        st.rerun()
+
+# =========================================================
+# 🔐 Login & Register
+# =========================================================
+st.sidebar.title("🔐 Login / Register")
+
+if not st.session_state.logged_in:
+    mode = st.sidebar.radio("Choose", ["Login", "Register"])
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+
+    if st.sidebar.button(mode):
+        if mode == "Login":
+            if login_user(username, password):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.success(f"Welcome back, {username}!")
+                st.rerun()
+            else:
+                st.error("Invalid credentials.")
+        else:
+            if register_user(username, password):
+                st.success("Registered successfully! Please login.")
+            else:
+                st.error("Username already exists.")
+else:
+    st.sidebar.success(f"👋 Logged in as {st.session_state.username}")
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+if not st.session_state.logged_in:
+    st.stop()
+
+# =========================================================
+# 🤖 Manage Bots
 # =========================================================
 user = st.session_state.username
 user_bots = get_user_bots(user)
@@ -120,130 +156,76 @@ if not user_bots:
     st.stop()
 
 for i, bot in enumerate(user_bots):
-    col1, col2, col3, col4 = st.sidebar.columns([2.5, 0.8, 0.8, 0.8])
-    with col1:
+    c1, c2, c3, c4 = st.sidebar.columns([2.5, 0.8, 0.8, 0.8])
+    with c1:
         st.sidebar.markdown(f"**{bot['name']}**")
-    with col2:
+    with c2:
         if st.sidebar.button("✏️", key=f"rename_{i}"):
             st.session_state.rename_bot_index = i
-    with col3:
+    with c3:
         if st.sidebar.button("🗑️", key=f"delete_{i}"):
-            st.session_state.confirm_delete = i
-    with col4:
-        if st.sidebar.button("🧹", key=f"clear_{i}"):
-            st.session_state.clear_history_index = i
-
-# Rename
-if st.session_state.rename_bot_index is not None:
-    i = st.session_state.rename_bot_index
-    bot = user_bots[i]
-    new_name = st.sidebar.text_input("New name:", value=bot["name"])
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.sidebar.button("✅ Save"):
-            update_bot(user, bot["name"], new_name)
-            st.session_state.rename_bot_index = None
-            st.sidebar.success(f"✅ Renamed to {new_name}")
-            st.rerun()
-    with col2:
-        if st.sidebar.button("❌ Cancel"):
-            st.session_state.rename_bot_index = None
-
-# Delete
-if st.session_state.confirm_delete is not None:
-    index = st.session_state.confirm_delete
-    bot = user_bots[index]
-    st.sidebar.error(f"⚠️ Delete '{bot['name']}'?")
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.sidebar.button("✅ Yes"):
             delete_bot(user, bot["name"])
-            st.session_state.confirm_delete = None
-            st.sidebar.success("✅ Deleted successfully")
+            st.sidebar.success("✅ Bot deleted.")
             st.rerun()
-    with col2:
-        if st.sidebar.button("❌ Cancel"):
-            st.session_state.confirm_delete = None
-
-# Clear chat history
-if "clear_history_index" in st.session_state and st.session_state.clear_history_index is not None:
-    i = st.session_state.clear_history_index
-    bot = user_bots[i]
-    st.sidebar.warning(f"🧹 Clear all chat history for '{bot['name']}'?")
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.sidebar.button("✅ Confirm Clear"):
+    with c4:
+        if st.sidebar.button("🧹", key=f"clear_{i}"):
             save_chat_history_cloud(user, bot["name"], [])
-            st.session_state.clear_history_index = None
-            st.sidebar.success(f"✅ Cleared history for {bot['name']}")
+            st.sidebar.success(f"🧹 Cleared {bot['name']}'s history.")
             st.rerun()
-    with col2:
-        if st.sidebar.button("❌ Cancel Clear"):
-            st.session_state.clear_history_index = None
-
 
 # =========================================================
-# 🧠 Select & Load Bot
+# 🧠 Bot Chat Section
 # =========================================================
 selected_bot = st.sidebar.selectbox("Who do you want to talk to?", [b["name"] for b in user_bots])
 bot_text = get_bot_file(user, selected_bot)
 
 if not bot_text.strip():
-    st.warning("⚠️ This bot is empty. Please upload a valid chat file.")
+    st.warning("⚠️ Bot chat file is empty.")
     st.stop()
 
-# Load cached embeddings (fast)
 embed_model, index, bot_lines = load_faiss_index(bot_text)
-
-# Load chat history
 chat_key = f"chat_{selected_bot}_{user}"
 if chat_key not in st.session_state:
     st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot)
 
-st.title(f"💬 {selected_bot}Bot")
+st.title(f"💬 Chat with {selected_bot}")
 
-# Display past messages
+# Display chat history
 for entry in st.session_state[chat_key]:
     st.chat_message("user").markdown(entry["user"])
     st.chat_message("assistant").markdown(entry["bot"])
 
-
 # =========================================================
-# 💬 Chat Input & Response
+# 🧠 Chat Input + Gemini
 # =========================================================
 user_input = st.chat_input(f"Talk to {selected_bot}...")
 
 if user_input:
     query_vector = embed_model.encode([user_input])
     D, I = index.search(query_vector, k=15)
-    context = "\n".join(bot_lines[i] for i in I[0] if i < len(bot_lines))
+    context = "\n".join(bot_lines[i] for i in I[0] if len(bot_lines[i].split()) > 3)
 
-    # Trim context to 2000 chars max
     if len(context) > 2500:
         context = context[:2500]
 
     prompt = f"""
-You are {selected_bot}, a real person who has previously chatted with the user.
-Your goal is to continue the conversation in your natural tone, slang, humor, and personality —
-just like the past chats shown below. Never sound like an AI assistant.
+You are {selected_bot}, a real person who has chatted with the user before.
+You must reply exactly how {selected_bot} would — use the same tone, vocabulary, and emotions
+seen in the past messages below. Never act like an assistant or add new phrases.
 
-Chat Memory (from your past conversations):
+Past conversation examples:
 {context}
 
-Never use any slang, emojis, or phrases that are not found in the past messages above.
-
-Now, reply naturally to the user as {selected_bot} would in this situation.
-Keep it short if not needed to be long and in your original tone.
+Now continue naturally.
 User: {user_input}
 {selected_bot}:
 """
 
-
-    # Stream Gemini response for faster feel
     model_name = "gemini-2.0-flash" if len(context) < 1200 else "gemini-1.5-flash"
+
     try:
         resp = genai_client.models.generate_content_stream(
-            model = model_name,
+            model=model_name,
             contents=prompt
         )
         bot_reply = ""
@@ -254,17 +236,14 @@ User: {user_input}
                 bot_reply += text
                 placeholder.markdown(bot_reply + "▌")
             placeholder.markdown(bot_reply)
-    except Exception:
+    except Exception as e:
         bot_reply = "⚠️ Error generating response."
 
-    # Save chat history (Firestore)
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-
     st.rerun()
 
-
 # =========================================================
-# ⬇️ Upload UI always visible at bottom
+# ⬇️ Upload UI Always at Bottom
 # =========================================================
 show_upload_ui()
