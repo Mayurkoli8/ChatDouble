@@ -337,29 +337,29 @@ def render_home():
         home_pass = st.text_input("Password", type="password", key="home_login_pass")
         c1, c2 = st.columns(2)
         with c1:
-        if st.button("Login", key="home_login_btn"):
-            if not home_user.strip() or not home_pass.strip():
-                st.error("⚠️ Please enter both username and password.")
-            else:
-                if login_user(home_user, home_pass):
-                    st.session_state.logged_in = True
-                    st.session_state.username = home_user
-                    st.session_state.show_login_on_home = False
-                    st.success(f"Welcome back, {home_user}!")
-                    st.experimental_rerun()
+            if st.button("Login", key="home_login_btn"):
+                if not home_user.strip() or not home_pass.strip():
+                    st.error("⚠️ Please enter both username and password.")
                 else:
-                    st.error("❌ Invalid credentials.")
-    
-    with c2:
-        if st.button("Register", key="home_reg_btn"):
-            if not home_user.strip() or not home_pass.strip():
-                st.error("⚠️ Please enter both username and password.")
-            else:
-                if register_user(home_user, home_pass):
-                    st.success("✅ Registered successfully! Please log in.")
+                    if login_user(home_user, home_pass):
+                        st.session_state.logged_in = True
+                        st.session_state.username = home_user
+                        st.session_state.show_login_on_home = False
+                        st.success(f"Welcome back, {home_user}!")
+                        st.experimental_rerun()
+                    else:
+                        st.error("❌ Invalid credentials.")
+        
+        with c2:
+            if st.button("Register", key="home_reg_btn"):
+                if not home_user.strip() or not home_pass.strip():
+                    st.error("⚠️ Please enter both username and password.")
                 else:
-                    st.error("❌ Username already exists.")
-    
+                    if register_user(home_user, home_pass):
+                        st.success("✅ Registered successfully! Please log in.")
+                    else:
+                        st.error("❌ Username already exists.")
+        
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
