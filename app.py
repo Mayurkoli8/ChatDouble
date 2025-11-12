@@ -62,7 +62,8 @@ st.markdown("""
 # 🔑 Initialize Gemini (official)
 # =========================================================
 api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
-genai_client = genai.Client(api_key=api_key)os.makedirs("chats", exist_ok=True)
+genai_client = genai.Client(api_key=api_key)
+os.makedirs("chats", exist_ok=True)
 
 # =========================================================
 # 🤖 Helper: Generate Persona Description
@@ -275,7 +276,7 @@ User: {user_input}
             contents=prompt,
             options={"temperature": 0.3, "max_output_tokens": 150}
         )
-        
+
         bot_reply = ""
         with st.chat_message("assistant"):
             placeholder = st.empty()
