@@ -226,7 +226,7 @@ with st.sidebar:
                     st.session_state.logged_in = True
                     st.session_state.username = username
                     st.success(f"Welcome back, {username}!")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Invalid credentials.")
             else:
@@ -238,7 +238,7 @@ with st.sidebar:
         st.markdown(f"👋 Logged in as **{st.session_state.username}**")
         if st.button("Logout"):
             st.session_state.logged_in = False
-            st.experimental_rerun()
+            st.rerun()
 
     st.markdown("---")
 
@@ -253,17 +253,17 @@ with st.sidebar:
             if st.button("Save rename"):
                 update_bot(st.session_state.username, manage_bot, new_name)
                 st.success("Renamed.")
-                st.experimental_rerun()
+                st.rerun()
         elif manage_action == "Delete":
             if st.button("Confirm delete"):
                 delete_bot(st.session_state.username, manage_bot)
                 st.success("Deleted.")
-                st.experimental_rerun()
+                st.rerun()
         elif manage_action == "Clear history":
             if st.button("Confirm clear"):
                 save_chat_history_cloud(st.session_state.username, manage_bot, [])
                 st.success("History cleared.")
-                st.experimental_rerun()
+                st.rerun()
 
     st.markdown("---")
 
@@ -290,7 +290,7 @@ with st.sidebar:
                 # add_bot stores file_text and persona in Firestore
                 add_bot(st.session_state.username, up_name.capitalize(), bot_lines, persona=persona)
                 st.success(f"Added {up_name} — persona: {persona or '—'}")
-                st.experimental_rerun()
+                st.rerun()
 
     st.markdown("---")
 
@@ -343,7 +343,7 @@ def render_home():
                     st.session_state.username = home_user
                     st.session_state.show_login_on_home = False
                     st.success(f"Welcome back, {home_user}!")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Invalid credentials.")
         with c2:
@@ -505,7 +505,7 @@ User: {user_input}
 
         # persist final history and refresh UI
         save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)  # end whatsapp-container
 
