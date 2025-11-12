@@ -311,13 +311,36 @@ def render_home():
     st.markdown("<div style='display:flex;align-items:center;gap:14px;'><div style='width:56px;height:56px;border-radius:12px;background:#6c63ff;display:flex;align-items:center;justify-content:center;font-weight:700'>CD</div><div><h2 style='margin:0;color:#fff'>ChatDouble</h2><div class='small-muted'>Bring your friends back to chat — private, personal bots from your chat exports.</div></div></div>", unsafe_allow_html=True)
     st.markdown("<div style='height:1px;background:#2a2a2a;margin:18px 0;border-radius:1px;'></div>", unsafe_allow_html=True)
     st.markdown("<div style='display:flex;gap:12px;'><div style='flex:1'><div class='card'><h3>How it works</h3><ul><li>Upload chat export (.txt)</li><li>We extract that person’s messages and create a bot</li><li>Chat — replies mimic their tone</li></ul></div></div><div style='width:320px'><div class='card'><h3>Quick Start</h3><ol><li>Register / Login (sidebar)</li><li>Upload a chat (sidebar)</li><li>Open a bot and start chatting</li></ol></div></div></div>", unsafe_allow_html=True)
-    st.markdown("""
-<div style='text-align:center;margin-top:20px;'>
-  <a href='#sidebar' style='background:#6c63ff;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;'>
-    🚀 Get Started — Login or Register
-  </a>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+if st.button("🚀 Get Started — Login or Register"):
+    st.session_state.show_login_on_home = True
+st.markdown("</div>", unsafe_allow_html=True)
+
+# Inline login form (appears below when clicked)
+if st.session_state.get("show_login_on_home"):
+    st.markdown("<div class='card' style='max-width:400px;margin:20px auto;'>", unsafe_allow_html=True)
+    st.subheader("🔐 Quick Login")
+    username = st.text_input("Username", key="home_login_user")
+    password = st.text_input("Password", type="password", key="home_login_pass")
+    login_col1, login_col2 = st.columns(2)
+    with login_col1:
+        if st.button("Login", key="home_login_btn"):
+            if login_user(username, password):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.session_state.show_login_on_home = False
+                st.success(f"Welcome back, {username}!")
+                st.rerun()
+            else:
+                st.error("❌ Invalid credentials.")
+    with login_col2:
+        if st.button("Register", key="home_reg_btn"):
+            if register_user(username, password):
+                st.success("✅ Registered successfully! Please log in.")
+            else:
+                st.error("❌ Username already exists.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # Render Home when not logged in
