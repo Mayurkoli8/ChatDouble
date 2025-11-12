@@ -338,154 +338,128 @@ else:
     tabs = st.tabs(["💬 Chat", "🧰 Manage Bots", "🍭 Buy Lollipop"])
 # ----- Chat tab -----
     with tabs[0]:
-        if not st.session_state.logged_in:
-            st.warning("Please log in (sidebar) to open your bots.")
-            st.stop()
-    
         user = st.session_state.username
-        try:
-            user_bots = get_user_bots(user) or []
-        except Exception as e:
-            st.error(f"Firestore error: {e}")
-            st.stop()
+        user_bots = get_user_bots(user)
     
         if not user_bots:
-            st.info("No bots found. Create one in the Manage tab.")
+            st.info("No bots yet. Create one in Manage tab.")
             st.stop()
     
-        # Side-by-side layout: chat main and bot list
         col_main, col_side = st.columns([2, 0.9])
-        with col_side:
-            st.markdown("<div class='card'><b>Your bots</b></div>", unsafe_allow_html=True)
-            for b in user_bots:
-                st.markdown(f"<div style='padding:8px;margin:8px 0;border-radius:8px;background:#0d1220;'><b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div>", unsafe_allow_html=True)
     
+        # Right side bot list
+        with col_side:
+            st.markdown("<div class='card'><b>Your Bots</b></div>", unsafe_allow_html=True)
+            for b in user_bots:
+                st.markdown(
+                    f"<div style='padding:8px;margin:8px 0;border-radius:8px;background:#0d1220;'>"
+                    f"<b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div>",
+                    unsafe_allow_html=True
+                )
+    
+        # Left side main chat
         with col_main:
-            st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
             selected_bot = st.selectbox("Select bot", [b["name"] for b in user_bots], key="chat_selected_bot")
     
-            # tolerant get_bot_file (support either string or (text,persona) tuple)
-            try:
-                res = get_bot_file(user, selected_bot)
-            except Exception as e:
-                st.error(f"Could not load bot: {e}")
-                st.stop()
-    
+            # Load bot file
+            res = get_bot_file(user, selected_bot)
             if isinstance(res, (list, tuple)):
-                bot_text = res[0] if len(res) > 0 else ""
+                bot_text = res[0]
                 persona = res[1] if len(res) > 1 else ""
             else:
-                bot_text = res or ""
+                bot_text = res
                 persona = ""
     
             if not bot_text.strip():
-                st.warning("This bot has no stored messages. Upload better chat data in Manage tab.")
+                st.warning("Bot has no data.")
                 st.stop()
     
             embed_model, index, bot_lines = build_faiss_for_bot(bot_text)
+    
             chat_key = f"chat_{selected_bot}_{user}"
             if chat_key not in st.session_state:
                 st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot) or []
     
-            # header
-            st.markdown(f"<div class='chat-header'><div class='title'>{selected_bot}</div><div class='subtitle'>Persona: {persona or '—'}</div></div>", unsafe_allow_html=True)
-
-            # ---------------------------
-            # Chat message area (render as a single HTML block so messages stay inside the card)
-            # ---------------------------
-            messages = st.session_state.get(chat_key, [])
-            # build html for messages (chronological)
-            msgs_html = []
-            for entry in messages:
-                ts = entry.get("ts", datetime.now().strftime("%I:%M %p"))
-                # user on right
-                if entry.get("user"):
-                    safe_user = str(entry["user"]).replace("<", "&lt;").replace(">", "&gt;")
-                    msgs_html.append(
-                        f"<div class='msg-row'><div class='msg user'>{safe_user}<span class='ts'>{ts}</span></div></div>"
-                    )
-                # bot on left
-                if entry.get("bot"):
-                    safe_bot = str(entry["bot"]).replace("<", "&lt;").replace(">", "&gt;")
-                    msgs_html.append(
-                        f"<div class='msg-row'><div class='msg bot'>{safe_bot}<span class='ts'>{ts}</span></div></div>"
-                    )
-
-            all_html = (
-                "<div class='chat-card'>"
-                "<div class='chat-window' id='chat-window'>"
-                + "".join(msgs_html) +
-                "</div></div>"
+            # Header
+            st.markdown(
+                f"<div class='chat-header'><div class='title'>{selected_bot}</div>"
+                f"<div class='subtitle'>Persona: {persona or '—'}</div></div>",
+                unsafe_allow_html=True
             )
-
-            st.markdown(all_html, unsafe_allow_html=True)
-
-            # Auto-scroll to bottom — use document, not window.parent
-            # (Streamlit executes this after the element is added)
+    
+            # CHAT CARD
+            messages = st.session_state[chat_key]
+            html_messages = ""
+            for m in messages:
+                ts = m.get("ts", "")
+                if m.get("user"):
+                    html_messages += f"<div class='msg-row'><div class='msg user'>{m['user']}<span class='ts'>{ts}</span></div></div>"
+                if m.get("bot"):
+                    html_messages += f"<div class='msg-row'><div class='msg bot'>{m['bot']}<span class='ts'>{ts}</span></div></div>"
+    
+            st.markdown(
+                f"""
+                <div class='chat-card'>
+                    <div class='chat-window' id='chat-window'>
+                        {html_messages}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+    
+            # Auto-scroll bottom
             st.markdown("""
             <script>
-            (function() {
-              function scrollChatToBottom() {
-                try {
-                  const chatWin = document.getElementById("chat-window");
-                  if (chatWin) {
-                    chatWin.scrollTop = chatWin.scrollHeight;
-                  }
-                } catch (e) {
-                  // fail silently
-                  console.log("scroll error", e);
-                }
-              }
-              // run after a short timeout to let Streamlit mount HTML
-              setTimeout(scrollChatToBottom, 60);
-            })();
+            setTimeout(() => {
+                var win = document.getElementById("chat-window");
+                if (win) { win.scrollTop = win.scrollHeight; }
+            }, 50);
             </script>
             """, unsafe_allow_html=True)
-
-
-            # input row
-            st.markdown("<div class='input-row'>", unsafe_allow_html=True)
-            user_input = st.text_input("Type a message...", key="chat_input")
-            send = st.button("Send", key="send_btn")
-            st.markdown("</div>", unsafe_allow_html=True)
     
-            if send and user_input.strip():
-                # retrieval
-                try:
-                    query_vector = embed_model.encode([user_input])
-                    D, I = index.search(query_vector, k=20)
-                except Exception:
-                    D, I = None, [[]]
-                lines = []
-                if I is not None:
-                    for idx in I[0]:
-                        if idx < len(bot_lines):
-                            candidate = bot_lines[idx].strip()
-                            if len(candidate.split()) > 2:
-                                lines.append(candidate)
-                context = "\n".join(lines[:12])
-                if len(context) > 3000:
-                    context = context[:3000]
+            # INPUT BAR
+            colA, colB = st.columns([9, 1])
+            with colA:
+                user_msg = st.text_input("Type…", key="chat_input_box", label_visibility="collapsed")
+            with colB:
+                send = st.button("➤", key="send_chat_btn")
     
-                persona_block = f"Persona: {persona}\n\n" if persona else ""
-                prompt = f"""{persona_block}You are {selected_bot}, a real person who has previously chatted with the user.
-    Use the same tone, slang, and style as the examples below. Never act like an AI assistant.
+            if send and user_msg.strip():
+                ts = datetime.now().strftime("%I:%M %p")
+                st.session_state[chat_key].append({"user": user_msg, "bot": "...thinking", "ts": ts})
+                save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
+    
+                # Retrieval
+                vec = embed_model.encode([user_msg])
+                _, idxs = index.search(vec, k=20)
+                retrieved = "\n".join([bot_lines[i] for i in idxs[0] if i < len(bot_lines)])[:2000]
+    
+                prompt = f"""
+    Persona: {persona}
+    
+    You are {selected_bot}. You talk EXACTLY like before.
+    Never act like an assistant.
     
     Examples:
-    {context}
+    {retrieved}
     
-    User: {user_input}
+    User: {user_msg}
     {selected_bot}:
     """
     
-                # add user message to history immediately (so UI shows it)
-                ts = datetime.now().strftime("%I:%M %p")
-                st.session_state[chat_key].append({"user": user_input, "bot": "...thinking", "ts": ts})
+                reply = "..."
+    
+                try:
+                    r = genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)
+                    reply = r.text or "⚠️ Empty response."
+                except Exception as e:
+                    reply = f"⚠️ Error: {e}"
+    
+                st.session_state[chat_key][-1]["bot"] = reply
+                st.session_state[chat_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
                 save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
                 st.rerun()
-    
-            st.markdown("</div>", unsafe_allow_html=True)
-    
     
     # ----- Manage Bots tab -----
     with tabs[1]:
