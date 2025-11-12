@@ -216,7 +216,7 @@ with st.sidebar:
                         st.session_state.logged_in = True
                         st.session_state.username = username_input
                         st.success(f"Welcome, {username_input}!")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error("Invalid credentials.")
             else:
@@ -234,7 +234,7 @@ with st.sidebar:
         if st.button("Logout"):
             st.session_state.logged_in = False
             st.session_state.username = ""
-            st.experimental_rerun()
+            st.rerun()
     st.markdown("---")
     st.markdown("<div class='small-muted'>Pro tip: manage bots and upload files inside the Manage tab (no sidebar actions required).</div>", unsafe_allow_html=True)
 
@@ -273,7 +273,7 @@ with tabs[0]:
                     st.session_state.logged_in = True
                     st.session_state.username = h_user
                     st.success("Logged in.")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Invalid credentials.")
         with colb:
@@ -397,7 +397,7 @@ User: {user_input}
             ts = datetime.now().strftime("%I:%M %p")
             st.session_state[chat_key].append({"user": user_input, "bot": "...thinking", "ts": ts})
             save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-            st.experimental_rerun()
+            st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -432,7 +432,7 @@ with tabs[2]:
             try:
                 add_bot(user, up_name.capitalize(), bot_lines, persona=persona)
                 st.success(f"Added {up_name} — persona: {persona or '—'}")
-                st.experimental_rerun()
+                st.rerun()
             except Exception as e:
                 st.error(f"Upload error: {e}")
 
@@ -457,7 +457,7 @@ with tabs[2]:
                     try:
                         update_bot(user, b['name'], new_name.strip())
                         st.success("Renamed.")
-                        st.experimental_rerun()
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Rename error: {e}")
                 else:
@@ -467,7 +467,7 @@ with tabs[2]:
                 try:
                     delete_bot(user, b['name'])
                     st.warning("Deleted.")
-                    st.experimental_rerun()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Delete error: {e}")
         with clr:
