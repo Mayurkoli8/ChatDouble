@@ -24,6 +24,9 @@ def register_user(username: str, password: str) -> bool:
 
 
 def login_user(username: str, password: str) -> bool:
+    if not username:
+        return False
+    doc = db.collection(USERS_COLLECTION).document(username).get()
     """
     Validate login credentials.
     Returns True if correct, False otherwise.
