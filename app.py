@@ -5,7 +5,7 @@ import json
 from sentence_transformers import SentenceTransformer
 from google import genai
 from firebase_db import (
-    get_user_bots, add_bot, delete_bot, update_bot,
+    get_user_bots, add_bot, delete_bot, update_bot, update_bot_persona,
     register_user, login_user, get_bot_file,
     save_chat_history_cloud, load_chat_history_cloud
 )
@@ -37,9 +37,9 @@ st.markdown("""
         background-color: #191a24;
         border-left: 4px solid #ffb347;
     }
-    .sidebar .sidebar-content {
-        background: #141416;
-        color: white;
+    .stSidebar {
+        background: #141416 !important;
+        color: white !important;
     }
     .stButton>button {
         border-radius: 8px;
@@ -63,11 +63,57 @@ st.markdown("""
 # =========================================================
 api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
 genai_client = genai.Client(api_key=api_key)
-
 os.makedirs("chats", exist_ok=True)
 
+
 # =========================================================
-# 🧠 Helper - FAISS Caching
+# 🧠 Helper: Extract Only Bot Lines
+# =========================================================
+def extract_bot_lines(raw_text, bot_name):
+    bot_lines = []
+    name_lower = bot_name.lower()
+    for line in raw_text.splitlines():
+        if not line or len(line) < 2:
+            continue
+        l = line.strip()
+        if ":" in l:
+            prefix, rest = l.split(":", 1)
+            if prefix.strip().lower() == name_lower:
+                bot_lines.append(rest.strip())
+        elif len(l.split()) > 3:
+            bot_lines.append(l)
+    bot_lines = [b for b in bot_lines if len(b.split()) > 1]
+    return "\n".join(bot_lines)
+
+
+# =========================================================
+# 🤖 Helper: Generate Persona Description
+# =========================================================
+def generate_persona(text_examples):
+    if not text_examples.strip():
+        return ""
+    prompt = f"""
+Take the following example messages spoken by one person.
+Write 1–2 sentences describing their tone, vibe, slang, and personality.
+
+Example lines:
+{text_examples}
+
+Output only the description, nothing else.
+"""
+    try:
+        resp = genai_client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt,
+            options={"temperature": 0.25, "max_output_tokens": 150}
+        )
+        return resp.text.strip().split("\n")[0][:240]
+    except Exception:
+        return ""
+
+
+# =========================================================
+# ⚡ Cached FAISS Index Builder
 # =========================================================
 @st.cache_resource(show_spinner=False)
 def load_faiss_index(bot_text):
@@ -86,8 +132,9 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
 
+
 # =========================================================
-# 📂 Upload Bot Function
+# 📂 Upload Bot UI
 # =========================================================
 def show_upload_ui():
     st.sidebar.markdown("---")
@@ -101,13 +148,22 @@ def show_upload_ui():
             st.sidebar.error("⚠️ Please upload a chat file.")
             return
         if not new_bot_name.strip():
-            st.sidebar.error("⚠️ Please enter a name for your bot.")
+            st.sidebar.error("⚠️ Please enter a bot name.")
             return
 
-        content = uploaded_file.read().decode("utf-8", "ignore")
-        add_bot(st.session_state.username, new_bot_name.capitalize(), content)
-        st.sidebar.success(f"✅ {new_bot_name} added successfully!")
+        raw = uploaded_file.read().decode("utf-8", "ignore")
+        bot_lines = extract_bot_lines(raw, new_bot_name)
+
+        if not bot_lines.strip():
+            st.sidebar.error("Could not detect bot messages in file.")
+            return
+
+        persona = generate_persona("\n".join(bot_lines.splitlines()[:40]))
+        add_bot(st.session_state.username, new_bot_name.capitalize(), bot_lines, persona=persona)
+
+        st.sidebar.success(f"✅ {new_bot_name} added! Persona: {persona or 'Default personality'}")
         st.rerun()
+
 
 # =========================================================
 # 🔐 Login & Register
@@ -130,9 +186,9 @@ if not st.session_state.logged_in:
                 st.error("Invalid credentials.")
         else:
             if register_user(username, password):
-                st.success("Registered successfully! Please login.")
+                st.success("✅ Registered successfully! Please log in.")
             else:
-                st.error("Username already exists.")
+                st.error("❌ Username already exists.")
 else:
     st.sidebar.success(f"👋 Logged in as {st.session_state.username}")
     if st.sidebar.button("Logout"):
@@ -141,6 +197,7 @@ else:
 
 if not st.session_state.logged_in:
     st.stop()
+
 
 # =========================================================
 # 🤖 Manage Bots
@@ -173,17 +230,19 @@ for i, bot in enumerate(user_bots):
             st.sidebar.success(f"🧹 Cleared {bot['name']}'s history.")
             st.rerun()
 
+
 # =========================================================
-# 🧠 Bot Chat Section
+# 🧠 Select & Load Bot
 # =========================================================
 selected_bot = st.sidebar.selectbox("Who do you want to talk to?", [b["name"] for b in user_bots])
-bot_text = get_bot_file(user, selected_bot)
+bot_text, persona = get_bot_file(user, selected_bot)
 
 if not bot_text.strip():
     st.warning("⚠️ Bot chat file is empty.")
     st.stop()
 
 embed_model, index, bot_lines = load_faiss_index(bot_text)
+
 chat_key = f"chat_{selected_bot}_{user}"
 if chat_key not in st.session_state:
     st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot)
@@ -195,38 +254,50 @@ for entry in st.session_state[chat_key]:
     st.chat_message("user").markdown(entry["user"])
     st.chat_message("assistant").markdown(entry["bot"])
 
+
 # =========================================================
-# 🧠 Chat Input + Gemini
+# 💬 Chat Input + Gemini
 # =========================================================
 user_input = st.chat_input(f"Talk to {selected_bot}...")
 
 if user_input:
     query_vector = embed_model.encode([user_input])
-    D, I = index.search(query_vector, k=15)
-    context = "\n".join(bot_lines[i] for i in I[0] if len(bot_lines[i].split()) > 3)
+    D, I = index.search(query_vector, k=25)
 
-    if len(context) > 2500:
-        context = context[:2500]
+    # Choose top meaningful bot lines
+    lines = []
+    for idx in I[0]:
+        if idx < len(bot_lines):
+            line = bot_lines[idx].strip()
+            if len(line.split()) > 3:
+                lines.append(line)
+    context = "\n".join(lines[:12])
+
+    if len(context) > 3000:
+        context = context[:3000]
+
+    persona_block = f"Persona: {persona}\n" if persona else ""
 
     prompt = f"""
-You are {selected_bot}, a real person who has chatted with the user before.
-You must reply exactly how {selected_bot} would — use the same tone, vocabulary, and emotions
-seen in the past messages below. Never act like an assistant or add new phrases.
+{persona_block}
+You are {selected_bot}, a real person who has previously chatted with the user.
+Use the same tone, slang, and style as before. Never act like an AI assistant.
+Base your tone and vocabulary on the examples below.
 
-Past conversation examples:
+Examples of how {selected_bot} talks:
 {context}
 
-Now continue naturally.
 User: {user_input}
 {selected_bot}:
 """
 
-    model_name = "gemini-2.0-flash" if len(context) < 1200 else "gemini-1.5-flash"
+    model_name = "gemini-1.5-flash" if len(context) > 1200 else "gemini-2.0-flash"
 
     try:
         resp = genai_client.models.generate_content_stream(
             model=model_name,
-            contents=prompt
+            contents=prompt,
+            options={"temperature": 0.25, "max_output_tokens": 300}
         )
         bot_reply = ""
         with st.chat_message("assistant"):
@@ -236,12 +307,13 @@ User: {user_input}
                 bot_reply += text
                 placeholder.markdown(bot_reply + "▌")
             placeholder.markdown(bot_reply)
-    except Exception as e:
+    except Exception:
         bot_reply = "⚠️ Error generating response."
 
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
     st.rerun()
+
 
 # =========================================================
 # ⬇️ Upload UI Always at Bottom
