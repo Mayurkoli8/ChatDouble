@@ -3,7 +3,7 @@ import faiss
 import os
 import json
 from sentence_transformers import SentenceTransformer
-from google import genai
+import google.generativeai as genai  # ✅ correct import
 from firebase_db import (
     get_user_bots, add_bot, delete_bot, update_bot, update_bot_persona,
     register_user, login_user, get_bot_file,
@@ -59,32 +59,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# 🔑 Initialize Gemini
+# 🔑 Initialize Gemini (official)
 # =========================================================
 api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
-genai_client = genai.Client(api_key=api_key)
+genai.configure(api_key=api_key)  # ✅ proper configuration
 os.makedirs("chats", exist_ok=True)
-
-
-# =========================================================
-# 🧠 Helper: Extract Only Bot Lines
-# =========================================================
-def extract_bot_lines(raw_text, bot_name):
-    bot_lines = []
-    name_lower = bot_name.lower()
-    for line in raw_text.splitlines():
-        if not line or len(line) < 2:
-            continue
-        l = line.strip()
-        if ":" in l:
-            prefix, rest = l.split(":", 1)
-            if prefix.strip().lower() == name_lower:
-                bot_lines.append(rest.strip())
-        elif len(l.split()) > 3:
-            bot_lines.append(l)
-    bot_lines = [b for b in bot_lines if len(b.split()) > 1]
-    return "\n".join(bot_lines)
-
 
 # =========================================================
 # 🤖 Helper: Generate Persona Description
@@ -102,13 +81,11 @@ Example lines:
 Output only the description, nothing else.
 """
     try:
-        resp = genai_client.models.generate_content(
-            model = model_name,
-            contents=prompt,
-            options={"temperature": 0.25, "max_output_tokens": 150}
-        )
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        resp = model.generate_content(prompt)
         return resp.text.strip().split("\n")[0][:240]
-    except Exception:
+    except Exception as e:
+        st.warning(f"Persona generation failed: {e}")
         return ""
 
 
@@ -300,9 +277,9 @@ User: {user_input}
         with st.chat_message("assistant"):
             placeholder = st.empty()
             for chunk in resp:
-                text = chunk.text or ""
-                bot_reply += text
-                placeholder.markdown(bot_reply + "▌")
+                if hasattr(chunk, "text") and chunk.text:
+                    bot_reply += chunk.text
+                    placeholder.markdown(bot_reply + "▌")
             placeholder.markdown(bot_reply)
     except Exception as e:
         st.error(f"⚠️ Gemini error: {e}")
