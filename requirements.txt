@@ -2,7 +2,7 @@ streamlit
 faiss-cpu
 sentence-transformers
 numpy
-google-genai
 firebase-admin
 bcrypt
-torch        # required by many sentence-transformers models (explicit)
+google-genai
+torch

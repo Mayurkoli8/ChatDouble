@@ -3,221 +3,47 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import os
 import json
-from firebase_db import get_user_bots, add_bot, delete_bot, update_bot, register_user, login_user
-from google import genai   # ✅ Add this line
+from google import genai
+from firebase_db import (
+    get_user_bots, add_bot, delete_bot, update_bot,
+    register_user, login_user, get_bot_file,
+    save_chat_history_cloud, load_chat_history_cloud
+)
 
-genai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# Initialize Gemini
+api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
+genai_client = genai.Client(api_key=api_key)
 
-CHAT_DIR = "chats"
-os.makedirs(CHAT_DIR, exist_ok=True)
+# Initialize folders for local fallback
+os.makedirs("chats", exist_ok=True)
 
-
-##helper to load chats history
-
-def load_chat_history(user, bot):
-    path = os.path.join(CHAT_DIR, user, f"{bot.lower()}.json")
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return json.load(f)
-    return []
-
-##helper to save chat history
-def save_chat_history(user, bot, history):
-    user_dir = os.path.join(CHAT_DIR, user)
-    os.makedirs(user_dir, exist_ok=True)
-    path = os.path.join(user_dir, f"{bot.lower()}.json")
-    with open(path, "w") as f:
-        json.dump(history, f, indent=2)
-        
-        
-##helper to rename bot
-def bot_filename(user, bot_name):
-    # consistent filename used everywhere
-    return os.path.join("bots", f"{user}_chat_{bot_name.lower()}.txt")
-
-
-
-# Auth state
+# Session state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
 
-# 🔁 Init session keys if not already set
-if "confirm_delete" not in st.session_state:
-    st.session_state.confirm_delete = None
-
-if "rename_bot_index" not in st.session_state:
-    st.session_state.rename_bot_index = None
-
-## upload function 
 def show_upload_ui():
     st.sidebar.markdown("---")
     st.sidebar.subheader("📂 Upload New Chat File")
 
-    uploaded_file = st.sidebar.file_uploader("Upload a .txt file", type=["txt"], key="file_uploader_input")
-    new_bot_name = st.sidebar.text_input("Bot name for this chat (e.g. John)", key="bot_name_input")
+    uploaded_file = st.sidebar.file_uploader("Upload a .txt file", type=["txt"])
+    new_bot_name = st.sidebar.text_input("Bot name (e.g. John)")
 
     if st.sidebar.button("Upload Bot"):
-        user_bots = get_user_bots(user)
-        already_exists = any(
-            bot["name"].lower() == new_bot_name.lower()
-            for bot in user_bots
-        )
         if uploaded_file is None:
-            st.sidebar.error("⚠️ Please choose a .txt file first.")
-        elif not new_bot_name.strip():
-            st.sidebar.error("⚠️ Please give the bot a name.")
-        elif already_exists:
-            st.sidebar.warning("⚠️ You already have a bot with this name.")
-        else:
-            # Save file
-            save_path = bot_filename(user, new_bot_name)
-            with open(save_path, "wb") as f:
-                f.write(uploaded_file.read())
+            st.sidebar.error("⚠️ Please choose a file.")
+            return
+        if not new_bot_name.strip():
+            st.sidebar.error("⚠️ Please enter a bot name.")
+            return
 
-            # Assign bot to Firestore
-            add_bot(user, new_bot_name.capitalize(), save_path)
-
-            # ✅ Do NOT clear fields manually — just rerun cleanly
-            st.sidebar.success(f"✅ {new_bot_name} bot added for {user}")
-            st.rerun()
+        content = uploaded_file.read().decode("utf-8", "ignore")
+        add_bot(st.session_state.username, new_bot_name.capitalize(), content)
+        st.sidebar.success(f"✅ Bot '{new_bot_name}' added!")
+        st.experimental_rerun()
 
 
-## Manage my bots
-
-if st.session_state.logged_in:
-    user = st.session_state.username
-    user_bots = get_user_bots(user)
-
-
-    if "confirm_delete" not in st.session_state:
-        st.session_state.confirm_delete = None
-
-    with st.sidebar.expander("🧰 Manage My Bots", expanded=False):
-        if not user_bots:
-            st.info("You haven't added any bots yet.")
-        else:
-            if "rename_bot_index" not in st.session_state:
-                st.session_state.rename_bot_index = None
-
-            for i, bot in enumerate(user_bots):
-                col1, col2, col3, col4 = st.columns([2.5, 0.7, 0.8, 0.8])
-                with col1:
-                    st.markdown(f"**{bot['name']}**")
-                if st.session_state.rename_bot_index is None:
-                    with col2:
-                        if st.button("✏️", key=f"rename_{i}"):
-                            st.session_state.rename_bot_index = i
-                    with col3:
-                        if st.button("🗑️", key=f"delete_{i}"):
-                            st.session_state.confirm_delete = i
-                    with col4:
-                        if st.button("🧼", key=f"clear_{i}"):
-                            st.session_state.clear_history_index = i
-            
-        # 🔁 Rename bot UI
-        if "rename_bot_index" in st.session_state and st.session_state.rename_bot_index is not None:
-            i = st.session_state.rename_bot_index
-            bot = user_bots[i]
-
-            new_name = st.sidebar.text_input("New name:", value=bot["name"], key="rename_input")
-
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("✅ Save", key="rename_confirm"):
-                    # 🛑 Prevent duplicate names
-                    if any(b["name"].lower() == new_name.lower() for b in user_bots if b != bot):
-                        st.sidebar.warning("⚠️ A bot with that name already exists.")
-                    else:
-                        old_name = bot["name"]
-                        old_file = bot["file"]
-                        new_file = bot_filename(user, new_name)
-                        new_history = os.path.join("chats", user, f"{new_name.lower()}.json")
-                        old_history = os.path.join("chats", user, f"{old_name.lower()}.json")
-
-                        # Rename chat file
-                        if os.path.exists(old_file):
-                            os.rename(old_file, new_file)
-
-                        # Rename history file
-                        if os.path.exists(old_history):
-                            os.rename(old_history, new_history)
-
-                        # Update users.json
-                        update_bot(user, old_name, new_name, new_file)
-
-                        st.session_state.rename_bot_index = None
-                        st.success(f"✅ Renamed '{old_name}' to '{new_name}'")
-                        st.rerun()
-
-
-            with col2:
-                if st.button("❌ Cancel", key="rename_cancel"):
-                    st.session_state.rename_bot_index = None
-
-        # 🧠 Confirmation outside of expander
-        if st.session_state.confirm_delete is not None:
-            index = st.session_state.confirm_delete
-            bot = user_bots[index]
-
-            st.sidebar.error(f"⚠️ Are you sure you want to delete '{bot['name']}'?")
-
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("✅ Yes", key="confirm_yes"):
-                    if os.path.exists(bot["file"]):
-                        os.remove(bot["file"])
-
-                    history_path = os.path.join("chats", user, f"{bot['name'].lower()}.json")
-                    if os.path.exists(history_path):
-                        os.remove(history_path)
-
-                    from firebase_db import delete_bot
-                    delete_bot(user, bot["name"])
-
-
-                    st.session_state.confirm_delete = None
-                    st.success(f"✅ Bot '{bot['name']}' deleted.")
-                    st.rerun()
-
-            with col2:
-                if st.button("❌ Cancel", key="confirm_no"):
-                    st.session_state.confirm_delete = None
-
-        # 🔁 Confirm Clear Chat History
-        if "clear_history_index" in st.session_state and st.session_state.clear_history_index is not None:
-            i = st.session_state.clear_history_index
-            bot = user_bots[i]
-
-            st.error(f"🧹 Clear all chat history with '{bot['name']}'?")
-
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("✅ Yes", key="clear_yes"):
-                    # Delete chat history file
-                    history_path = os.path.join("chats", user, f"{bot['name'].lower()}.json")
-                    if os.path.exists(history_path):
-                        os.remove(history_path)
-
-                    # Clear in-memory chat
-                    chat_key = f"chat_{bot['name']}_{user}"
-                    if chat_key in st.session_state:
-                        st.session_state[chat_key] = []
-
-                    st.success(f"✅ Chat history with '{bot['name']}' cleared.")
-                    st.session_state.clear_history_index = None
-                    st.rerun()
-
-            with col2:
-                if st.button("❌ Cancel", key="clear_no"):
-                    st.session_state.clear_history_index = None
-
-    
-
-
-
-## ui for auth
-
+# --- AUTH ---
 st.sidebar.title("🔐 Login / Register")
 
 if not st.session_state.logged_in:
@@ -226,196 +52,98 @@ if not st.session_state.logged_in:
     password = st.sidebar.text_input("Password", type="password")
 
     if st.sidebar.button(action):
-
-        from firebase_db import register_user, login_user
-
         if action == "Login":
             if login_user(username, password):
                 st.session_state.logged_in = True
                 st.session_state.username = username
-                st.success(f"✅ Welcome back, {username}!")
-                st.rerun()
+                st.success(f"Welcome back, {username}!")
+                st.experimental_rerun()
             else:
                 st.error("❌ Invalid credentials.")
-
-        elif action == "Register":
+        else:
             if register_user(username, password):
-                st.success("✅ Registered. Please log in.")
+                st.success("✅ Registered successfully! Please log in.")
             else:
                 st.error("❌ Username already exists.")
-
 else:
-    st.sidebar.success(f"👋 Logged in as: {st.session_state.username}")
+    st.sidebar.success(f"👋 Logged in as {st.session_state.username}")
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
-        st.session_state.username = ""
-        st.rerun()
+        st.experimental_rerun()
 
-
-# login check (stop app if not logged in)
 
 if not st.session_state.logged_in:
-    st.warning("🔒 Please log in to access your bots.")
     st.stop()
 
-
-
-# 🔹 Available bots and their chat files
-
-
+# --- BOTS ---
 user = st.session_state.username
 user_bots = get_user_bots(user)
 
-bot_map = {
-    bot["name"]: bot["file"]
-    for bot in user_bots if os.path.exists(bot["file"])
-}
-
-
-
-# 🔹 Sidebar: choose bot
-st.sidebar.title("🤖 Choose Your Bot")
-bot_names = list(bot_map.keys())
-
-if not bot_names:
-    st.warning("No bots found. Please upload a chat file to start.")
+st.sidebar.title("🤖 Your Bots")
+if not user_bots:
+    st.info("No bots yet. Upload one to get started.")
     show_upload_ui()
     st.stop()
 
-selected_bot = st.sidebar.selectbox("Who do you want to talk to?", bot_names)
+selected_bot = st.sidebar.selectbox("Choose your bot", [b["name"] for b in user_bots])
 
-# 🔹 Session key per bot
-bot_key = f"faiss_{selected_bot.lower()}"
+# Load bot file content from Firestore
+bot_text = get_bot_file(user, selected_bot)
+bot_lines = [line.strip() for line in bot_text.splitlines() if line.strip()]
 
-# 🔹 Load FAISS memory per bot
-if bot_key not in st.session_state:
-    chat_path = bot_map[selected_bot]
-    with open(chat_path, "r", encoding="utf-8") as f:
-        bot_lines = [line.strip() for line in f.readlines() if line.strip()]
+if not bot_lines:
+    st.warning("Bot file is empty.")
+    st.stop()
 
-    embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-    embeddings = embed_model.encode(bot_lines, convert_to_numpy=True)
+# Embed & FAISS
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+embeddings = embed_model.encode(bot_lines, convert_to_numpy=True)
+index = faiss.IndexFlatL2(embeddings.shape[1])
+index.add(embeddings)
 
-    index = faiss.IndexFlatL2(embeddings.shape[1])
-    index.add(embeddings)
-
-    st.session_state[bot_key] = {
-        "index": index,
-        "lines": bot_lines,
-        "embed_model": embed_model,
-    }
-    
-
-
-# 🧠 Chat history per bot with diffrent sessions
+# Load chat history from Firestore
 chat_key = f"chat_{selected_bot}_{user}"
-
 if chat_key not in st.session_state:
-    st.session_state[chat_key] = load_chat_history(user, selected_bot)
+    st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot)
 
-# Show history
 st.title(f"💬 {selected_bot}Bot")
 
-
+# Display previous messages
 for entry in st.session_state[chat_key]:
     st.chat_message("user").markdown(entry["user"])
     st.chat_message("assistant").markdown(entry["bot"])
 
-# Chat input
-user_input = st.chat_input(f"Say something to {selected_bot}...", key="user_input")
+user_input = st.chat_input(f"Talk to {selected_bot}...")
+
 if user_input:
-    # 🔍 Search top 20 relevant lines
-    data = st.session_state[bot_key]
-    query_vector = data["embed_model"].encode([user_input])
-    D, I = data["index"].search(query_vector, k=20)
-    top_matches = [data["lines"][i] for i in I[0]]
-    context = "\n".join(top_matches)
-
-
+    query_vector = embed_model.encode([user_input])
+    D, I = index.search(query_vector, k=20)
+    context = "\n".join(bot_lines[i] for i in I[0] if i < len(bot_lines))
 
     prompt = f"""
-You are {selected_bot}, a real person who has chatted with the user before.
+You are {selected_bot}, a person who has chatted with this user before.
 
 Recent memory:
 {context}
 
-Now reply to the user as {selected_bot} would:
+Now reply to the user naturally as {selected_bot}:
 User: {user_input}
 {selected_bot}:
 """
 
-
-
-    # 💬 Get response from Mistral
     try:
         resp = genai_client.models.generate_content(
-            model="models/gemini-2.0-flash-exp",  # or another Gemini model you prefer
+            model="gemini-2.0-flash",
             contents=prompt
         )
-        # resp.text contains the generated text
         bot_reply = resp.text.strip()
-
     except Exception as e:
-        bot_reply = "⚠️ Error: the LLM failed to generate a response."
-    
-    
-    # 💾 Save to history (per user + bot)
-    entry = {
-        "user": user_input,
-        "bot": bot_reply
-    }
-    st.session_state[chat_key].append(entry)
-    save_chat_history(user, selected_bot, st.session_state[chat_key])
+        bot_reply = "⚠️ Error generating response."
 
-    
-    st.rerun()
+    st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
+    save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
+    st.experimental_rerun()
 
 
-## upload bot
-if st.session_state.logged_in:
-    show_upload_ui()
-    
-
-
-## download chat history    
-if st.session_state.logged_in:
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("📤 Download Chat History")
-
-    # Get user’s bots & dropdown
-
-
-    if user_bots:
-        bot_names = [bot["name"] for bot in user_bots]
-        export_bot = st.sidebar.selectbox("Choose a bot to export", bot_names, key="export_bot_select")
-
-        # Load chat history from file
-        chat_path = os.path.join("chats", user, f"{export_bot.lower()}.json")
-        if os.path.exists(chat_path):
-            with open(chat_path, "r") as f:
-                history = json.load(f)
-        else:
-            history = []
-
-        #  Generate download files
-        # .txt format
-        txt_export = "\n\n".join([f"You: {entry['user']}\n{export_bot}: {entry['bot']}" for entry in history])
-    
-        # .json format
-        json_export = json.dumps(history, indent=2)
-
-
-        #Show download buttons
-        st.sidebar.download_button(
-            label="⬇️ Download .txt",
-            data=txt_export,
-            file_name=f"{export_bot}_chat.txt",
-            mime="text/plain"
-        )
-
-        st.sidebar.download_button(
-            label="⬇️ Download .json",
-            data=json_export,
-            file_name=f"{export_bot}_chat.json",
-            mime="application/json"
-        )
+# Upload new bot option
+show_upload_ui()
