@@ -16,7 +16,7 @@ import base64
 # ---------------------------
 # Basic init / Gemini client
 # ---------------------------
-st.set_page_config(page_title="ChatDouble", page_icon="🤖", layout="wide"  initial_sidebar_state="expanded")
+st.set_page_config(page_title="ChatDouble", page_icon="🤖", layout="wide",  initial_sidebar_state="expanded")
 api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
 genai_client = genai.Client(api_key=api_key)
 
