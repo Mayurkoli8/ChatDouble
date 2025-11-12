@@ -9,7 +9,8 @@ from sentence_transformers import SentenceTransformer
 import faiss
 
 # Use the same import shape you used earlier:
-from google import genai
+import google.generativeai as genai
+
 
 # firebase_db functions you already have in project:
 from firebase_db import (
@@ -410,16 +411,16 @@ else:
                     msgs_html.append(
                         f"<div class='msg-row'><div class='msg bot'>{safe_bot}<span class='ts'>{ts}</span></div></div>"
                     )
-            
+
             all_html = (
                 "<div class='chat-card'>"
                 "<div class='chat-window' id='chat-window'>"
                 + "".join(msgs_html) +
                 "</div></div>"
             )
-            
+
             st.markdown(all_html, unsafe_allow_html=True)
-            
+
             # Auto-scroll to bottom — use document, not window.parent
             # (Streamlit executes this after the element is added)
             st.markdown("""
@@ -441,7 +442,7 @@ else:
             })();
             </script>
             """, unsafe_allow_html=True)
-            
+
 
             # input row
             st.markdown("<div class='input-row'>", unsafe_allow_html=True)
