@@ -346,10 +346,10 @@ def render_home():
                         st.session_state.username = home_user
                         st.session_state.show_login_on_home = False
                         st.success(f"Welcome back, {home_user}!")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error("❌ Invalid credentials.")
-        
+
         with c2:
             if st.button("Register", key="home_reg_btn"):
                 if not home_user.strip() or not home_pass.strip():
@@ -359,7 +359,7 @@ def render_home():
                         st.success("✅ Registered successfully! Please log in.")
                     else:
                         st.error("❌ Username already exists.")
-        
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
