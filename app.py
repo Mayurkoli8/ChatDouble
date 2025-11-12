@@ -246,48 +246,47 @@ with st.sidebar:
 if not st.session_state.logged_in:
     # Unauthenticated view: show only Home
     tabs = st.tabs(["🏠 Home"])
+    # ----- Home tab -----
+    with tabs[0]:
+        st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
+        st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
 
-# ----- Home tab -----
-with tabs[0]:
-    st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
-    st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
-
-    st.markdown("<div class='card' style='padding:18px; margin-bottom:14px'>", unsafe_allow_html=True)
-    st.markdown("<h3 style='margin:0;color:#fff'>How it works</h3>", unsafe_allow_html=True)
-    st.markdown("<ul><li>Upload a chat export (.txt) in Manage tab</li><li>We extract that person's messages and create a bot</li><li>Chat — replies mimic their tone</li></ul>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    c1, c2 = st.columns([2, 1])
-    with c2:
-        st.markdown("<div class='card'><h4>Your Quick Start</h4><ol><li>Register / Login (sidebar)</li><li>Upload a chat in Manage</li><li>Open Chat tab and select bot</li></ol></div>", unsafe_allow_html=True)
-    with c1:
-        if st.button("🚀 Get Started — Login or Register"):
-            st.session_state.show_inline_login = True
-
-    if st.session_state.show_inline_login and not st.session_state.logged_in:
-        st.markdown("<div class='card' style='max-width:480px;margin-top:18px'>", unsafe_allow_html=True)
-        st.subheader("Quick Login")
-        h_user = st.text_input("Username", key="home_user")
-        h_pass = st.text_input("Password", type="password", key="home_pass")
-        cola, colb = st.columns(2)
-        with cola:
-            if st.button("Login", key="home_login_btn"):
-                if login_user(h_user, h_pass):
-                    st.session_state.logged_in = True
-                    st.session_state.username = h_user
-                    st.success("Logged in.")
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials.")
-        with colb:
-            if st.button("Register", key="home_reg_btn"):
-                if register_user(h_user, h_pass):
-                    st.success("Registered! Now login.")
-                else:
-                    st.error("Username exists.")
+        st.markdown("<div class='card' style='padding:18px; margin-bottom:14px'>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin:0;color:#fff'>How it works</h3>", unsafe_allow_html=True)
+        st.markdown("<ul><li>Upload a chat export (.txt) in Manage tab</li><li>We extract that person's messages and create a bot</li><li>Chat — replies mimic their tone</li></ul>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        c1, c2 = st.columns([2, 1])
+        with c2:
+            st.markdown("<div class='card'><h4>Your Quick Start</h4><ol><li>Register / Login (sidebar)</li><li>Upload a chat in Manage</li><li>Open Chat tab and select bot</li></ol></div>", unsafe_allow_html=True)
+        with c1:
+            if st.button("🚀 Get Started — Login or Register"):
+                st.session_state.show_inline_login = True
+
+        if st.session_state.show_inline_login and not st.session_state.logged_in:
+            st.markdown("<div class='card' style='max-width:480px;margin-top:18px'>", unsafe_allow_html=True)
+            st.subheader("Quick Login")
+            h_user = st.text_input("Username", key="home_user")
+            h_pass = st.text_input("Password", type="password", key="home_pass")
+            cola, colb = st.columns(2)
+            with cola:
+                if st.button("Login", key="home_login_btn"):
+                    if login_user(h_user, h_pass):
+                        st.session_state.logged_in = True
+                        st.session_state.username = h_user
+                        st.success("Logged in.")
+                        st.rerun()
+                    else:
+                        st.error("Invalid credentials.")
+            with colb:
+                if st.button("Register", key="home_reg_btn"):
+                    if register_user(h_user, h_pass):
+                        st.success("Registered! Now login.")
+                    else:
+                        st.error("Username exists.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 else:
     # Authenticated view: hide Home, show main app
