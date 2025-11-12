@@ -103,7 +103,7 @@ Output only the description, nothing else.
 """
     try:
         resp = genai_client.models.generate_content(
-            model="gemini-1.5-flash",
+            model = model_name,
             contents=prompt,
             options={"temperature": 0.25, "max_output_tokens": 150}
         )
@@ -294,11 +294,8 @@ User: {user_input}
     model_name = "gemini-1.5-flash" if len(context) > 1200 else "gemini-2.0-flash"
 
     try:
-        resp = genai_client.models.generate_content_stream(
-            model=model_name,
-            contents=prompt,
-            options={"temperature": 0.25, "max_output_tokens": 300}
-        )
+        model = genai.GenerativeModel(model_name)
+        resp = model.generate_content_stream(prompt)
         bot_reply = ""
         with st.chat_message("assistant"):
             placeholder = st.empty()
@@ -307,9 +304,10 @@ User: {user_input}
                 bot_reply += text
                 placeholder.markdown(bot_reply + "▌")
             placeholder.markdown(bot_reply)
-    except Exception:
+    except Exception as e:
+        st.error(f"⚠️ Gemini error: {e}")
         bot_reply = "⚠️ Error generating response."
-
+    
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
     st.rerun()
