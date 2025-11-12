@@ -215,26 +215,35 @@ user_input = st.chat_input(f"Talk to {selected_bot}...")
 
 if user_input:
     query_vector = embed_model.encode([user_input])
-    D, I = index.search(query_vector, k=8)
+    D, I = index.search(query_vector, k=15)
     context = "\n".join(bot_lines[i] for i in I[0] if i < len(bot_lines))
 
     # Trim context to 2000 chars max
-    if len(context) > 2000:
-        context = context[:2000]
+    if len(context) > 2500:
+        context = context[:2500]
 
     prompt = f"""
-You are {selected_bot}, chatting with your friend.
-Base your reply on these messages:
+You are {selected_bot}, a real person who has previously chatted with the user.
+Your goal is to continue the conversation in your natural tone, slang, humor, and personality —
+just like the past chats shown below. Never sound like an AI assistant.
+
+Chat Memory (from your past conversations):
 {context}
 
+Never use any slang, emojis, or phrases that are not found in the past messages above.
+
+Now, reply naturally to the user as {selected_bot} would in this situation.
+Keep it short if not needed to be long and in your original tone.
 User: {user_input}
 {selected_bot}:
 """
 
+
     # Stream Gemini response for faster feel
+    model_name = "gemini-2.0-flash" if len(context) < 1200 else "gemini-1.5-flash"
     try:
         resp = genai_client.models.generate_content_stream(
-            model="gemini-2.0-flash",
+            model = model_name,
             contents=prompt
         )
         bot_reply = ""

@@ -6,3 +6,4 @@ firebase-admin
 bcrypt
 google-genai
 torch
+requests
