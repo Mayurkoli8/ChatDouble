@@ -242,7 +242,10 @@ with st.sidebar:
 # ---------------------------
 # Tabs: Home | Chat | Manage | Buy
 # ---------------------------
-tabs = st.tabs(["🏠 Home", "💬 Chat", "🧰 Manage Bots", "🍭 Buy Lollipop"])
+
+if not st.session_state.logged_in:
+    # Unauthenticated view: show only Home
+    tabs = st.tabs(["🏠 Home"])
 
 # ----- Home tab -----
 with tabs[0]:
@@ -286,9 +289,11 @@ with tabs[0]:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-
+else:
+    # Authenticated view: hide Home, show main app
+    tabs = st.tabs(["💬 Chat", "🧰 Manage Bots", "🍭 Buy Lollipop"])
 # ----- Chat tab -----
-with tabs[1]:
+with tabs[0]:
     if not st.session_state.logged_in:
         st.warning("Please log in (sidebar) to open your bots.")
         st.stop()
@@ -403,7 +408,7 @@ User: {user_input}
 
 
 # ----- Manage Bots tab -----
-with tabs[2]:
+with tabs[1]:
     if not st.session_state.logged_in:
         st.warning("Please log in (sidebar) to manage your bots.")
         st.stop()
@@ -480,8 +485,7 @@ with tabs[2]:
 
 
 # ----- Buy Lollipop tab -----
-# ----- Buy Lollipop tab -----
-with tabs[3]:
+with tabs[2]:
     st.markdown("<div class='card'><h4>Buy developer a lollipop 🍭</h4>", unsafe_allow_html=True)
 
     upi_id = st.secrets.get("upi_id") if st.secrets else None
