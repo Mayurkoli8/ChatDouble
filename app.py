@@ -273,22 +273,21 @@ User: {user_input}
     try:
         resp = genai_client.models.generate_content_stream(
             model=model_name,
-            contents=prompt,
-            options={"temperature": 0.3, "max_output_tokens": 150}
+            contents=prompt
         )
-
         bot_reply = ""
         with st.chat_message("assistant"):
             placeholder = st.empty()
             for chunk in resp:
-                text = chunk.text or ""
-                bot_reply += text
-                placeholder.markdown(bot_reply + "▌")
+                text = getattr(chunk, "text", "")
+                if text:
+                    bot_reply += text
+                    placeholder.markdown(bot_reply + "▌")
             placeholder.markdown(bot_reply)
     except Exception as e:
         st.error(f"⚠️ Gemini error: {e}")
         bot_reply = "⚠️ Error generating response."
-
+    
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
     st.rerun()
