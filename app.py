@@ -16,7 +16,7 @@ import base64
 # ---------------------------
 # Basic init / Gemini client
 # ---------------------------
-st.set_page_config(page_title="ChatDouble", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="ChatDouble", page_icon="🤖", layout="wide"  initial_sidebar_state="expanded")
 api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
 genai_client = genai.Client(api_key=api_key)
 
@@ -309,9 +309,16 @@ with st.sidebar:
 def render_home():
     st.markdown("<div class='whatsapp-container card'>", unsafe_allow_html=True)
     st.markdown("<div style='display:flex;align-items:center;gap:14px;'><div style='width:56px;height:56px;border-radius:12px;background:#6c63ff;display:flex;align-items:center;justify-content:center;font-weight:700'>CD</div><div><h2 style='margin:0;color:#fff'>ChatDouble</h2><div class='small-muted'>Bring your friends back to chat — private, personal bots from your chat exports.</div></div></div>", unsafe_allow_html=True)
-    st.markdown("<hr style='border-color:#222'/>", unsafe_allow_html=True)
+    st.markdown("<div style='height:1px;background:#2a2a2a;margin:18px 0;border-radius:1px;'></div>", unsafe_allow_html=True)
     st.markdown("<div style='display:flex;gap:12px;'><div style='flex:1'><div class='card'><h3>How it works</h3><ul><li>Upload chat export (.txt)</li><li>We extract that person’s messages and create a bot</li><li>Chat — replies mimic their tone</li></ul></div></div><div style='width:320px'><div class='card'><h3>Quick Start</h3><ol><li>Register / Login (sidebar)</li><li>Upload a chat (sidebar)</li><li>Open a bot and start chatting</li></ol></div></div></div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("""
+<div style='text-align:center;margin-top:20px;'>
+  <a href='#sidebar' style='background:#6c63ff;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;'>
+    🚀 Get Started — Login or Register
+  </a>
+</div>
+""", unsafe_allow_html=True)
+
 
 # Render Home when not logged in
 if not st.session_state.logged_in:
