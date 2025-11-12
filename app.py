@@ -3,7 +3,7 @@ import faiss
 import os
 import json
 from sentence_transformers import SentenceTransformer
-import google.generativeai as genai  # ✅ correct import
+from google import genai   # ✅ your original working import
 from firebase_db import (
     get_user_bots, add_bot, delete_bot, update_bot, update_bot_persona,
     register_user, login_user, get_bot_file,
@@ -62,8 +62,7 @@ st.markdown("""
 # 🔑 Initialize Gemini (official)
 # =========================================================
 api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
-genai.configure(api_key=api_key)  # ✅ proper configuration
-os.makedirs("chats", exist_ok=True)
+genai_client = genai.Client(api_key=api_key)os.makedirs("chats", exist_ok=True)
 
 # =========================================================
 # 🤖 Helper: Generate Persona Description
@@ -271,20 +270,24 @@ User: {user_input}
     model_name = "gemini-1.5-flash" if len(context) > 1200 else "gemini-2.0-flash"
 
     try:
-        model = genai.GenerativeModel(model_name)
-        resp = model.generate_content_stream(prompt)
+        resp = genai_client.models.generate_content_stream(
+            model=model_name,
+            contents=prompt,
+            options={"temperature": 0.3, "max_output_tokens": 150}
+        )
+        
         bot_reply = ""
         with st.chat_message("assistant"):
             placeholder = st.empty()
             for chunk in resp:
-                if hasattr(chunk, "text") and chunk.text:
-                    bot_reply += chunk.text
-                    placeholder.markdown(bot_reply + "▌")
+                text = chunk.text or ""
+                bot_reply += text
+                placeholder.markdown(bot_reply + "▌")
             placeholder.markdown(bot_reply)
     except Exception as e:
         st.error(f"⚠️ Gemini error: {e}")
         bot_reply = "⚠️ Error generating response."
-    
+
     st.session_state[chat_key].append({"user": user_input, "bot": bot_reply})
     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
     st.rerun()

@@ -7,4 +7,3 @@ bcrypt
 google-genai
 torch
 requests
-google-generativeai
