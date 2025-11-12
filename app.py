@@ -197,7 +197,7 @@ Return only the short persona description.
 """
     try:
         resp = genai_client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-exp",
             contents=prompt,
             options={"temperature": 0.2, "max_output_tokens": 120}
         )
@@ -453,7 +453,7 @@ else:
 
                 try:
                     resp = genai_client.models.generate_content(
-                    model="gemini-1.5-flash",
+                    model="gemini-2.0-flash-exp",
                     contents=prompt
                 )
 
