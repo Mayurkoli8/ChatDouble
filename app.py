@@ -290,232 +290,232 @@ else:
     # Authenticated view: hide Home, show main app
     tabs = st.tabs(["💬 Chat", "🧰 Manage Bots", "🍭 Buy Lollipop"])
 # ----- Chat tab -----
-with tabs[0]:
-    if not st.session_state.logged_in:
-        st.warning("Please log in (sidebar) to open your bots.")
-        st.stop()
-
-    user = st.session_state.username
-    try:
-        user_bots = get_user_bots(user) or []
-    except Exception as e:
-        st.error(f"Firestore error: {e}")
-        st.stop()
-
-    if not user_bots:
-        st.info("No bots found. Create one in the Manage tab.")
-        st.stop()
-
-    # Side-by-side layout: chat main and bot list
-    col_main, col_side = st.columns([2, 0.9])
-    with col_side:
-        st.markdown("<div class='card'><b>Your bots</b></div>", unsafe_allow_html=True)
-        for b in user_bots:
-            st.markdown(f"<div style='padding:8px;margin:8px 0;border-radius:8px;background:#0d1220;'><b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div>", unsafe_allow_html=True)
-
-    with col_main:
-        st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
-        selected_bot = st.selectbox("Select bot", [b["name"] for b in user_bots], key="chat_selected_bot")
-
-        # tolerant get_bot_file (support either string or (text,persona) tuple)
-        try:
-            res = get_bot_file(user, selected_bot)
-        except Exception as e:
-            st.error(f"Could not load bot: {e}")
+    with tabs[0]:
+        if not st.session_state.logged_in:
+            st.warning("Please log in (sidebar) to open your bots.")
             st.stop()
 
-        if isinstance(res, (list, tuple)):
-            bot_text = res[0] if len(res) > 0 else ""
-            persona = res[1] if len(res) > 1 else ""
-        else:
-            bot_text = res or ""
-            persona = ""
-
-        if not bot_text.strip():
-            st.warning("This bot has no stored messages. Upload better chat data in Manage tab.")
-            st.stop()
-
-        embed_model, index, bot_lines = build_faiss_for_bot(bot_text)
-        chat_key = f"chat_{selected_bot}_{user}"
-        if chat_key not in st.session_state:
-            st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot) or []
-
-        # header
-        st.markdown(f"<div class='chat-header'><div class='title'>{selected_bot}</div><div class='subtitle'>Persona: {persona or '—'}</div></div>", unsafe_allow_html=True)
-
-        # chat window
-        st.markdown("<div class='chat-window' id='chat-window'>", unsafe_allow_html=True)
-        # render history chronologically
-        for entry in st.session_state[chat_key]:
-            ts = entry.get("ts", datetime.now().strftime("%I:%M %p"))
-            # user message
-            if entry.get("user"):
-                st.markdown(f"<div class='msg-row' style='justify-content:flex-end;'><div class='msg user'>{st.experimental_singleton(lambda x: x)(entry['user']) if False else entry['user']}<span class='ts'>{ts}</span></div></div>", unsafe_allow_html=True)
-            # bot message
-            if entry.get("bot"):
-                # error-bubble detection
-                if isinstance(entry['bot'], str) and entry['bot'].strip().startswith("⚠️"):
-                    st.markdown(f"<div class='msg-row' style='justify-content:flex-start;'><div class='msg error'>{entry['bot']}<div class='ts'>{ts}</div></div></div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div class='msg-row' style='justify-content:flex-start;'><div class='msg bot'>{entry['bot']}<span class='ts'>{ts}</span></div></div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # input row
-        st.markdown("<div class='input-row'>", unsafe_allow_html=True)
-        user_input = st.text_input("Type a message...", key="chat_input")
-        send = st.button("Send", key="send_btn")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        if send and user_input.strip():
-            # retrieval
-            try:
-                query_vector = embed_model.encode([user_input])
-                D, I = index.search(query_vector, k=20)
-            except Exception:
-                D, I = None, [[]]
-            lines = []
-            if I is not None:
-                for idx in I[0]:
-                    if idx < len(bot_lines):
-                        candidate = bot_lines[idx].strip()
-                        if len(candidate.split()) > 2:
-                            lines.append(candidate)
-            context = "\n".join(lines[:12])
-            if len(context) > 3000:
-                context = context[:3000]
-
-            persona_block = f"Persona: {persona}\n\n" if persona else ""
-            prompt = f"""{persona_block}You are {selected_bot}, a real person who has previously chatted with the user.
-Use the same tone, slang, and style as the examples below. Never act like an AI assistant.
-
-Examples:
-{context}
-
-User: {user_input}
-{selected_bot}:
-"""
-
-            # add user message to history immediately (so UI shows it)
-            ts = datetime.now().strftime("%I:%M %p")
-            st.session_state[chat_key].append({"user": user_input, "bot": "...thinking", "ts": ts})
-            save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-            st.rerun()
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ----- Manage Bots tab -----
-with tabs[1]:
-    if not st.session_state.logged_in:
-        st.warning("Please log in (sidebar) to manage your bots.")
-        st.stop()
-
-    user = st.session_state.username
-    st.markdown("<div class='card'><h4>Upload chat export (.txt) — max 2 bots</h4>", unsafe_allow_html=True)
-    up_file = st.file_uploader("Choose .txt file", type=["txt"], key="manage_upload")
-    up_name = st.text_input("Bot name (example: John)", key="manage_name")
-    if st.button("Upload bot", key="manage_upload_btn"):
+        user = st.session_state.username
         try:
             user_bots = get_user_bots(user) or []
         except Exception as e:
-            st.error(f"Could not check existing bots: {e}")
-            user_bots = []
-        if len(user_bots) >= 2:
-            st.error("You already have 2 bots. Delete one first.")
-        elif (not up_file) or (not up_name.strip()):
-            st.error("Please provide both file and name.")
-        else:
-            raw = up_file.read().decode("utf-8", "ignore")
-            bot_lines = extract_bot_lines(raw, up_name)
-            if not bot_lines.strip():
-                # fallback to storing longer lines
-                bot_lines = "\n".join([l for l in raw.splitlines() if len(l.split()) > 1])
-            persona = generate_persona("\n".join(bot_lines.splitlines()[:40]))
+            st.error(f"Firestore error: {e}")
+            st.stop()
+
+        if not user_bots:
+            st.info("No bots found. Create one in the Manage tab.")
+            st.stop()
+
+        # Side-by-side layout: chat main and bot list
+        col_main, col_side = st.columns([2, 0.9])
+        with col_side:
+            st.markdown("<div class='card'><b>Your bots</b></div>", unsafe_allow_html=True)
+            for b in user_bots:
+                st.markdown(f"<div style='padding:8px;margin:8px 0;border-radius:8px;background:#0d1220;'><b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div>", unsafe_allow_html=True)
+
+        with col_main:
+            st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
+            selected_bot = st.selectbox("Select bot", [b["name"] for b in user_bots], key="chat_selected_bot")
+
+            # tolerant get_bot_file (support either string or (text,persona) tuple)
             try:
-                add_bot(user, up_name.capitalize(), bot_lines, persona=persona)
-                st.success(f"Added {up_name} — persona: {persona or '—'}")
-                st.rerun()
+                res = get_bot_file(user, selected_bot)
             except Exception as e:
-                st.error(f"Upload error: {e}")
+                st.error(f"Could not load bot: {e}")
+                st.stop()
 
-    st.markdown("</div>", unsafe_allow_html=True)
+            if isinstance(res, (list, tuple)):
+                bot_text = res[0] if len(res) > 0 else ""
+                persona = res[1] if len(res) > 1 else ""
+            else:
+                bot_text = res or ""
+                persona = ""
 
-    # Manage existing bots UI
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    st.markdown("<h4>Your bots</h4>", unsafe_allow_html=True)
-    try:
-        user_bots = get_user_bots(user) or []
-    except Exception as e:
-        st.error(f"Firestore error: {e}")
-        user_bots = []
+            if not bot_text.strip():
+                st.warning("This bot has no stored messages. Upload better chat data in Manage tab.")
+                st.stop()
 
-    for b in user_bots:
-        st.markdown(f"**{b['name']}** — Persona: {b.get('persona','—')}")
-        rn, dlt, clr = st.columns([1,1,1])
-        with rn:
-            new_name = st.text_input(f"Rename {b['name']}", key=f"rename_{b['name']}")
-            if st.button("Rename", key=f"rename_btn_{b['name']}"):
-                if new_name.strip():
-                    try:
-                        update_bot(user, b['name'], new_name.strip())
-                        st.success("Renamed.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Rename error: {e}")
-                else:
-                    st.error("Enter a new name.")
-        with dlt:
-            if st.button("Delete", key=f"del_{b['name']}"):
+            embed_model, index, bot_lines = build_faiss_for_bot(bot_text)
+            chat_key = f"chat_{selected_bot}_{user}"
+            if chat_key not in st.session_state:
+                st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot) or []
+
+            # header
+            st.markdown(f"<div class='chat-header'><div class='title'>{selected_bot}</div><div class='subtitle'>Persona: {persona or '—'}</div></div>", unsafe_allow_html=True)
+
+            # chat window
+            st.markdown("<div class='chat-window' id='chat-window'>", unsafe_allow_html=True)
+            # render history chronologically
+            for entry in st.session_state[chat_key]:
+                ts = entry.get("ts", datetime.now().strftime("%I:%M %p"))
+                # user message
+                if entry.get("user"):
+                    st.markdown(f"<div class='msg-row' style='justify-content:flex-end;'><div class='msg user'>{st.experimental_singleton(lambda x: x)(entry['user']) if False else entry['user']}<span class='ts'>{ts}</span></div></div>", unsafe_allow_html=True)
+                # bot message
+                if entry.get("bot"):
+                    # error-bubble detection
+                    if isinstance(entry['bot'], str) and entry['bot'].strip().startswith("⚠️"):
+                        st.markdown(f"<div class='msg-row' style='justify-content:flex-start;'><div class='msg error'>{entry['bot']}<div class='ts'>{ts}</div></div></div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div class='msg-row' style='justify-content:flex-start;'><div class='msg bot'>{entry['bot']}<span class='ts'>{ts}</span></div></div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # input row
+            st.markdown("<div class='input-row'>", unsafe_allow_html=True)
+            user_input = st.text_input("Type a message...", key="chat_input")
+            send = st.button("Send", key="send_btn")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            if send and user_input.strip():
+                # retrieval
                 try:
-                    delete_bot(user, b['name'])
-                    st.warning("Deleted.")
+                    query_vector = embed_model.encode([user_input])
+                    D, I = index.search(query_vector, k=20)
+                except Exception:
+                    D, I = None, [[]]
+                lines = []
+                if I is not None:
+                    for idx in I[0]:
+                        if idx < len(bot_lines):
+                            candidate = bot_lines[idx].strip()
+                            if len(candidate.split()) > 2:
+                                lines.append(candidate)
+                context = "\n".join(lines[:12])
+                if len(context) > 3000:
+                    context = context[:3000]
+
+                persona_block = f"Persona: {persona}\n\n" if persona else ""
+                prompt = f"""{persona_block}You are {selected_bot}, a real person who has previously chatted with the user.
+    Use the same tone, slang, and style as the examples below. Never act like an AI assistant.
+
+    Examples:
+    {context}
+
+    User: {user_input}
+    {selected_bot}:
+    """
+
+                # add user message to history immediately (so UI shows it)
+                ts = datetime.now().strftime("%I:%M %p")
+                st.session_state[chat_key].append({"user": user_input, "bot": "...thinking", "ts": ts})
+                save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
+                st.rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+
+    # ----- Manage Bots tab -----
+    with tabs[1]:
+        if not st.session_state.logged_in:
+            st.warning("Please log in (sidebar) to manage your bots.")
+            st.stop()
+
+        user = st.session_state.username
+        st.markdown("<div class='card'><h4>Upload chat export (.txt) — max 2 bots</h4>", unsafe_allow_html=True)
+        up_file = st.file_uploader("Choose .txt file", type=["txt"], key="manage_upload")
+        up_name = st.text_input("Bot name (example: John)", key="manage_name")
+        if st.button("Upload bot", key="manage_upload_btn"):
+            try:
+                user_bots = get_user_bots(user) or []
+            except Exception as e:
+                st.error(f"Could not check existing bots: {e}")
+                user_bots = []
+            if len(user_bots) >= 2:
+                st.error("You already have 2 bots. Delete one first.")
+            elif (not up_file) or (not up_name.strip()):
+                st.error("Please provide both file and name.")
+            else:
+                raw = up_file.read().decode("utf-8", "ignore")
+                bot_lines = extract_bot_lines(raw, up_name)
+                if not bot_lines.strip():
+                    # fallback to storing longer lines
+                    bot_lines = "\n".join([l for l in raw.splitlines() if len(l.split()) > 1])
+                persona = generate_persona("\n".join(bot_lines.splitlines()[:40]))
+                try:
+                    add_bot(user, up_name.capitalize(), bot_lines, persona=persona)
+                    st.success(f"Added {up_name} — persona: {persona or '—'}")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Delete error: {e}")
-        with clr:
-            if st.button("Clear history", key=f"clr_{b['name']}"):
-                try:
-                    save_chat_history_cloud(user, b['name'], [])
-                    st.success("History cleared.")
-                except Exception as e:
-                    st.error(f"Clear error: {e}")
+                    st.error(f"Upload error: {e}")
 
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# ----- Buy Lollipop tab -----
-with tabs[2]:
-    st.markdown("<div class='card'><h4>Buy developer a lollipop 🍭</h4>", unsafe_allow_html=True)
-
-    upi_id = st.secrets.get("upi_id") if st.secrets else None
-    upi_qr_url = st.secrets.get("upi_qr_url") if st.secrets else None
-    upi_qr_b64 = st.secrets.get("upi_qr_base64") if st.secrets else None
-
-    # ✅ handle base64-encoded QR
-    if upi_qr_b64:
+        # Manage existing bots UI
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<h4>Your bots</h4>", unsafe_allow_html=True)
         try:
-            img_bytes = base64.b64decode(upi_qr_b64)
-            st.image(img_bytes, width=220)
-        except Exception:
-            st.info("⚠️ Invalid base64 QR in secrets — please check your `upi_qr_base64` value.")
+            user_bots = get_user_bots(user) or []
+        except Exception as e:
+            st.error(f"Firestore error: {e}")
+            user_bots = []
 
-    # ✅ handle external URL QR (http/https only)
-    elif upi_qr_url and isinstance(upi_qr_url, str):
-        if upi_qr_url.lower().startswith("http"):
-            st.image(upi_qr_url, width=220)
+        for b in user_bots:
+            st.markdown(f"**{b['name']}** — Persona: {b.get('persona','—')}")
+            rn, dlt, clr = st.columns([1,1,1])
+            with rn:
+                new_name = st.text_input(f"Rename {b['name']}", key=f"rename_{b['name']}")
+                if st.button("Rename", key=f"rename_btn_{b['name']}"):
+                    if new_name.strip():
+                        try:
+                            update_bot(user, b['name'], new_name.strip())
+                            st.success("Renamed.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Rename error: {e}")
+                    else:
+                        st.error("Enter a new name.")
+            with dlt:
+                if st.button("Delete", key=f"del_{b['name']}"):
+                    try:
+                        delete_bot(user, b['name'])
+                        st.warning("Deleted.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Delete error: {e}")
+            with clr:
+                if st.button("Clear history", key=f"clr_{b['name']}"):
+                    try:
+                        save_chat_history_cloud(user, b['name'], [])
+                        st.success("History cleared.")
+                    except Exception as e:
+                        st.error(f"Clear error: {e}")
+
+
+    # ----- Buy Lollipop tab -----
+    with tabs[2]:
+        st.markdown("<div class='card'><h4>Buy developer a lollipop 🍭</h4>", unsafe_allow_html=True)
+
+        upi_id = st.secrets.get("upi_id") if st.secrets else None
+        upi_qr_url = st.secrets.get("upi_qr_url") if st.secrets else None
+        upi_qr_b64 = st.secrets.get("upi_qr_base64") if st.secrets else None
+
+        # ✅ handle base64-encoded QR
+        if upi_qr_b64:
+            try:
+                img_bytes = base64.b64decode(upi_qr_b64)
+                st.image(img_bytes, width=220)
+            except Exception:
+                st.info("⚠️ Invalid base64 QR in secrets — please check your `upi_qr_base64` value.")
+
+        # ✅ handle external URL QR (http/https only)
+        elif upi_qr_url and isinstance(upi_qr_url, str):
+            if upi_qr_url.lower().startswith("http"):
+                st.image(upi_qr_url, width=220)
+            else:
+                st.info("⚠️ Invalid `upi_qr_url` format — must start with http/https (not a local path).")
+
+        # ✅ no QR configured
         else:
-            st.info("⚠️ Invalid `upi_qr_url` format — must start with http/https (not a local path).")
+            st.info("No QR configured. Add `upi_qr_url` or `upi_qr_base64` in Streamlit secrets.")
 
-    # ✅ no QR configured
-    else:
-        st.info("No QR configured. Add `upi_qr_url` or `upi_qr_base64` in Streamlit secrets.")
+        # ✅ UPI ID display
+        if upi_id:
+            st.markdown(f"**UPI ID:** `{upi_id}`")
+        else:
+            st.markdown("Add `upi_id` to Streamlit secrets to show UPI ID.")
 
-    # ✅ UPI ID display
-    if upi_id:
-        st.markdown(f"**UPI ID:** `{upi_id}`")
-    else:
-        st.markdown("Add `upi_id` to Streamlit secrets to show UPI ID.")
-
-    st.markdown("<div class='small-muted'>Tip: add secrets via Streamlit Cloud → Settings → Secrets to show QR & UPI ID publicly in this tab.</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<div class='small-muted'>Tip: add secrets via Streamlit Cloud → Settings → Secrets to show QR & UPI ID publicly in this tab.</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ---------------------------
