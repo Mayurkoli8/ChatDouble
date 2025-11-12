@@ -1,167 +1,122 @@
-# app.py  — revised & bug-fixed (copy-paste replace)
-import streamlit as st
-import faiss
+# app.py — complete copy-paste replacement
 import os
 import json
+import base64
+from datetime import datetime
+
+import streamlit as st
 from sentence_transformers import SentenceTransformer
-from google import genai   # using your working client
+import faiss
+
+# Use the same import shape you used earlier:
+from google import genai
+
+# firebase_db functions you already have in project:
 from firebase_db import (
     get_user_bots, add_bot, delete_bot, update_bot, update_bot_persona,
     register_user, login_user, get_bot_file,
     save_chat_history_cloud, load_chat_history_cloud
 )
-from datetime import datetime
-import base64
 
 # ---------------------------
-# Page config + gemini init
+# Page config + Gemini client
 # ---------------------------
-st.set_page_config(page_title="ChatDouble", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
-api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
-genai_client = genai.Client(api_key=api_key)
+st.set_page_config(page_title="ChatDouble", page_icon="🤖", layout="wide")
+API_KEY = os.getenv("GEMINI_API_KEY") or (st.secrets.get("GEMINI_API_KEY") if st.secrets else None)
+if not API_KEY:
+    # app should still load if missing key — show warning later where generation happens
+    genai_client = None
+else:
+    genai_client = genai.Client(api_key=API_KEY)
 
 os.makedirs("chats", exist_ok=True)
 
+
 # ---------------------------
-# CSS / Styling (WhatsApp-like)
+# CSS: WhatsApp-like + remove streamlit header/footer
 # ---------------------------
-st.markdown("""
+st.markdown(
+    """
 <style>
-#MainMenu, header, footer {visibility:hidden;}
+/* hide menu/header/footer (keeps sidebar toggle) */
+#MainMenu { visibility: hidden; }
+header { visibility: hidden; }
+footer { visibility: hidden; }
 
+/* app bg */
 [data-testid="stAppViewContainer"] {
-  background: radial-gradient(circle at top right, #121218, #0a0a0c);
-  color: #e6eef8;
-  font-family: 'Inter', sans-serif;
-  height: 100vh;
-  overflow: hidden;
+  background: radial-gradient(circle at top right,#0b0b0d,#111118);
+  color: #eaf0ff;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
 
-section[data-testid="stSidebar"] > div:first-child {
-  background: linear-gradient(180deg,#0e0e12,#121217);
-  padding: 16px;
-  border-radius: 10px;
+/* top tabs container spacing */
+.stApp > main > div.block-container {
+  padding-top: 18px;
+  padding-left: 32px;
+  padding-right: 32px;
 }
 
-/* main wrapper */
+/* main layout wrapper */
 .main-chat-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  height: 92vh;
-  max-width: 880px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 12px;
 }
 
-/* Chat header */
+/* chat header */
 .chat-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-radius: 12px;
-  background: linear-gradient(90deg,#141420,#0e0e12);
-  box-shadow: inset 0 0 1px #2c2c3c, 0 2px 10px rgba(0,0,0,0.5);
-  margin-bottom: 8px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; border-radius:10px; margin-bottom:10px;
+  background:linear-gradient(90deg,#0f1114,#0b0c0f);
+  box-shadow: 0 6px 26px rgba(0,0,0,0.6);
 }
-.chat-header .title {
-  font-weight: 600;
-  color: #fff;
-  font-size: 18px;
-}
-.chat-header .persona {
-  color: #aaa;
-  font-size: 13px;
-}
+.chat-header .title { font-size:20px; font-weight:700; color:#fff; }
+.chat-header .subtitle { color:#9aa3b2; font-size:13px; }
 
-/* Chat window */
+/* chat window / WhatsApp look */
 .chat-window {
-  background: #0c0d11;
-  border-radius: 14px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-  padding: 18px;
-  overflow-y: auto;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 10px;
-  scroll-behavior: smooth;
-  height: 100%;
+  background:#0b0c0f; padding:18px; border-radius:12px;
+  height:62vh; overflow-y:auto; display:flex; flex-direction:column; gap:12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
 }
 
-/* Messages */
-.msg-row { display: flex; align-items: flex-end; }
-.msg.user {
-  background: linear-gradient(90deg,#25D366,#128C7E);
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 18px 18px 4px 18px;
-  margin-left: auto;
-  max-width: 70%;
-  font-size: 15px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-}
-.msg.bot {
-  background: #fff;
-  color: #111;
-  padding: 10px 14px;
-  border-radius: 18px 18px 18px 4px;
-  margin-right: auto;
-  max-width: 70%;
-  font-size: 15px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-}
-.msg.error {
-  background: #2a2a2e;
-  color: #ffae42;
-  padding: 8px 12px;
-  border-radius: 12px;
-  max-width: fit-content;
-  margin: 4px auto;
-  font-size: 13px;
-  opacity: 0.85;
-}
-.timestamp {
-  font-size: 11px;
-  color: #999;
-  margin-top: 4px;
-  text-align: right;
-}
+/* message bubbles */
+.msg-row { display:flex; width:100%; }
+.msg { padding:12px 14px; border-radius:16px; max-width:72%; font-size:15px; line-height:1.4; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+.msg.bot { background:#ffffff; color:#111; border-radius:16px 16px 16px 6px; align-self:flex-start; }
+.msg.user { background: linear-gradient(90deg,#25D366,#128C7E); color:#fff; border-radius:16px 16px 6px 16px; align-self:flex-end; margin-left:auto; }
 
-/* Input bar */
-.chat-input {
-  display: flex;
-  gap: 10px;
-  padding-top: 10px;
-}
-input.chat-text {
-  flex: 1;
-  background: #101117;
-  border: 1px solid #222;
-  color: white;
-  padding: 12px;
-  border-radius: 12px;
-}
-button.send-btn {
-  background: #25D366;
-  color: black;
-  border: none;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 700;
-}
+/* error message bubble */
+.msg.error { background:#2b2b33; color:#ffcc66; align-self:center; border-radius:10px; }
+
+/* timestamp small */
+.ts { display:block; font-size:11px; color:#9aa3b2; margin-top:8px; }
+
+/* input row */
+.input-row { display:flex; gap:10px; margin-top:12px; }
+input.chat-input { flex:1; padding:12px 14px; border-radius:12px; border:1px solid #202124; background:#0f1114; color:#fff; }
+button.send-btn { background:#25D366; color:#000; border:none; padding:10px 14px; border-radius:10px; font-weight:700; }
+
+/* small card */
+.card { background: linear-gradient(180deg,#0f1720,#0b1014); padding:14px; border-radius:10px; box-shadow: 0 8px 20px rgba(0,0,0,0.5); color:#e6eef8; }
+.small-muted { color:#9aa3b2; font-size:13px; }
+
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ---------------------------
-# Helpers: parsing, persona, FAISS
+# Helpers: text extraction, persona, FAISS
 # ---------------------------
-def extract_bot_lines(raw_text, bot_name):
+def extract_bot_lines(raw_text: str, bot_name: str) -> str:
+    """
+    Heuristic: collect lines starting with 'Name:' (case-insensitive).
+    Fallback: include long lines ( > 3 words ).
+    """
     bot_lines = []
-    name_lower = bot_name.lower()
+    name_lower = (bot_name or "").strip().lower()
     for line in raw_text.splitlines():
         if not line or len(line.strip()) < 2:
             continue
@@ -170,87 +125,107 @@ def extract_bot_lines(raw_text, bot_name):
             prefix, rest = l.split(":", 1)
             if prefix.strip().lower() == name_lower:
                 bot_lines.append(rest.strip())
-        elif len(l.split()) > 3:
-            bot_lines.append(l)
+        else:
+            if len(l.split()) > 3:
+                bot_lines.append(l)
     bot_lines = [b for b in bot_lines if len(b.split()) > 1]
     return "\n".join(bot_lines)
 
-def generate_persona(text_examples):
-    if not text_examples.strip():
-        return ""
-    prompt = f"""
-Take the following example messages spoken by one person.
-Write 1–2 sentences describing their tone, vibe, slang, and personality.
 
-Example lines:
+def generate_persona(text_examples: str) -> str:
+    """
+    Ask Gemini for a short persona description.
+    Keep temperature low for deterministic output.
+    Tolerant if no genai client is configured.
+    """
+    if not text_examples or not genai_client:
+        return ""
+    prompt = f"""Take these example messages from a single person and write a 1-2 sentence persona description capturing their tone, slang, and typical phrases.
+
+Examples:
 {text_examples}
 
-Output only the description, nothing else.
+Return only the short persona description.
 """
     try:
-        # legacy client generate_content returns a dict-like result
         resp = genai_client.models.generate_content(
             model="gemini-1.5-flash",
-            contents=prompt
+            contents=prompt,
+            options={"temperature": 0.2, "max_output_tokens": 120}
         )
-        # support both dict style and attribute style
+        # support dict-like and object-like responses
         if isinstance(resp, dict):
-            return resp.get('message', {}).get('content', '').strip().split("\n")[0][:240]
+            text = resp.get("message", {}).get("content", "") or ""
         else:
-            # fallback for other shapes
-            txt = getattr(resp, "text", None) or str(resp)
-            return txt.strip().split("\n")[0][:240]
+            text = getattr(resp, "text", None) or str(resp)
+        return text.strip().splitlines()[0][:240]
     except Exception:
         return ""
 
+
 @st.cache_resource(show_spinner=False)
-def load_faiss_index(bot_text):
+def build_faiss_for_bot(bot_text: str):
+    """
+    Returns (embed_model, faiss_index, bot_lines list)
+    Cached per content string.
+    """
     bot_lines = [line.strip() for line in bot_text.splitlines() if line.strip()]
+    if not bot_lines:
+        # minimal fallback: single placeholder
+        bot_lines = ["hello"]
     embed_model = SentenceTransformer("all-MiniLM-L6-v2")
     embeddings = embed_model.encode(bot_lines, convert_to_numpy=True)
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
     return embed_model, index, bot_lines
 
+
 # ---------------------------
-# Session keys + state
+# Session state defaults
 # ---------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
-if "rename_bot_index" not in st.session_state:
-    st.session_state.rename_bot_index = None
-if "confirm_delete" not in st.session_state:
-    st.session_state.confirm_delete = None
-if "clear_history_index" not in st.session_state:
-    st.session_state.clear_history_index = None
-if "show_login_on_home" not in st.session_state:
-    st.session_state.show_login_on_home = False
+if "show_inline_login" not in st.session_state:
+    st.session_state.show_inline_login = False
+
 
 # ---------------------------
-# Sidebar: Login / Manage / Buy Lollipop
+# Minimal sidebar: login/logout only
 # ---------------------------
 with st.sidebar:
-    st.markdown("<div style='margin-bottom:6px;'><img src='https://i.imgur.com/8YqzJkL.png' width=36/> <b style='font-size:18px;color:#fff'>ChatDouble</b></div>", unsafe_allow_html=True)
+    st.markdown("<div style='display:flex;align-items:center;gap:10px;'><div style='width:44px;height:44px;border-radius:10px;background:#6c63ff;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>CD</div><div><b style='font-size:16px;color:#fff'>ChatDouble</b><div class='small-muted'>Personal chatbots from exports</div></div></div>", unsafe_allow_html=True)
     st.markdown("---")
-
-    # auth UI
-    st.subheader("🔐 Login / Register")
+    st.subheader("🔐 Account")
     if not st.session_state.logged_in:
-        auth_mode = st.radio("", ["Login", "Register"], index=0)
-        username = st.text_input("Username", key="login_user")
-        password = st.text_input("Password", type="password", key="login_pass")
-        if st.button(auth_mode):
-            if auth_mode == "Login":
-                if login_user(username, password):
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-                    st.success(f"Welcome back, {username}!")
-                    st.rerun()
+        mode = st.radio("", ["Login", "Register"], index=0)
+        username_input = st.text_input("Username", key="sb_user")
+        password_input = st.text_input("Password", type="password", key="sb_pass")
+        if st.button(mode):
+            if mode == "Login":
+                if not username_input.strip() or not password_input.strip():
+                    st.error("Enter both fields.")
                 else:
-                    st.error("Invalid credentials.")
+                    ok = False
+                    try:
+                        ok = login_user(username_input, password_input)
+                    except Exception as e:
+                        st.error(f"Auth error: {e}")
+                        ok = False
+                    if ok:
+                        st.session_state.logged_in = True
+                        st.session_state.username = username_input
+                        st.success(f"Welcome, {username_input}!")
+                        st.experimental_rerun()
+                    else:
+                        st.error("Invalid credentials.")
             else:
-                if register_user(username, password):
+                try:
+                    ok = register_user(username_input, password_input)
+                except Exception as e:
+                    st.error(f"Register error: {e}")
+                    ok = False
+                if ok:
                     st.success("Registered — please login.")
                 else:
                     st.error("Username exists.")
@@ -258,316 +233,426 @@ with st.sidebar:
         st.markdown(f"👋 Logged in as **{st.session_state.username}**")
         if st.button("Logout"):
             st.session_state.logged_in = False
-            st.rerun()
-
+            st.session_state.username = ""
+            st.experimental_rerun()
     st.markdown("---")
+    st.markdown("<div class='small-muted'>Pro tip: manage bots and upload files inside the Manage tab (no sidebar actions required).</div>", unsafe_allow_html=True)
 
-    # Manage dropdown (action + bot)
-    st.subheader("🧰 Manage")
-    manage_action = st.selectbox("Action", ["Select", "Rename", "Delete", "Clear history"])
-    bots_for_manage = [b["name"] for b in get_user_bots(st.session_state.username)] if st.session_state.logged_in else []
-    manage_bot = st.selectbox("Choose bot", ["--"] + bots_for_manage)
-    if manage_action != "Select" and manage_bot != "--":
-        if manage_action == "Rename":
-            new_name = st.text_input("New name for " + manage_bot)
-            if st.button("Save rename"):
-                update_bot(st.session_state.username, manage_bot, new_name)
-                st.success("Renamed.")
-                st.rerun()
-        elif manage_action == "Delete":
-            if st.button("Confirm delete"):
-                delete_bot(st.session_state.username, manage_bot)
-                st.success("Deleted.")
-                st.rerun()
-        elif manage_action == "Clear history":
-            if st.button("Confirm clear"):
-                save_chat_history_cloud(st.session_state.username, manage_bot, [])
-                st.success("History cleared.")
-                st.rerun()
-
-    st.markdown("---")
-
-    # Upload small form (kept here but limited to 2 bots)
-    st.subheader("📂 Upload Bot (max 2)")
-    up_file = st.file_uploader("", type=["txt"], key="upload_file")
-    up_name = st.text_input("Bot name", key="upload_name")
-    if st.button("Upload bot file"):
-        if not st.session_state.logged_in:
-            st.error("Please login first.")
-        else:
-            user_bots = get_user_bots(st.session_state.username)
-            if len(user_bots) >= 2:
-                st.error("You can only have 2 bots. Delete one first.")
-            elif not up_file or not up_name.strip():
-                st.error("Please choose a file and give bot a name.")
-            else:
-                raw = up_file.read().decode("utf-8", "ignore")
-                bot_lines = extract_bot_lines(raw, up_name)
-                if not bot_lines.strip():
-                    st.warning("Couldn't confidently parse speaker lines — storing best-effort.")
-                    bot_lines = "\n".join([l for l in raw.splitlines() if len(l.split())>1])
-                persona = generate_persona("\n".join(bot_lines.splitlines()[:40]))
-                # add_bot stores file_text and persona in Firestore
-                add_bot(st.session_state.username, up_name.capitalize(), bot_lines, persona=persona)
-                st.success(f"Added {up_name} — persona: {persona or '—'}")
-                st.rerun()
-
-    st.markdown("---")
-
-    # Buy Developer Lollipop (QR + UPI)
-    st.subheader("🍭 Buy developer lollipop")
-    upi_id = st.secrets.get("upi_id", "") if st.secrets else ""
-    upi_qr = st.secrets.get("upi_qr_base64", "") if st.secrets else ""
-    if upi_qr:
-        try:
-            img_bytes = base64.b64decode(upi_qr)
-            st.image(img_bytes, width=200)
-        except Exception:
-            st.write("QR (invalid base64).")
-    elif st.secrets and st.secrets.get("upi_qr_url"):
-        st.image(st.secrets.get("upi_qr_url"), width=200)
-    else:
-        st.info("Add your UPI QR (base64) to Streamlit secrets `upi_qr_base64` or `upi_qr_url`.")
-
-    if upi_id:
-        st.markdown(f"**UPI:** `{upi_id}`")
-    else:
-        st.write("Add your UPI id in Streamlit secrets as `upi_id`.")
-    st.markdown("---")
-    st.markdown("<div class='small-muted'>Tip: set `upi_id` and `upi_qr_base64` in Streamlit secrets for quick purchase.</div>", unsafe_allow_html=True)
 
 # ---------------------------
-# Home screen + inline login
+# Tabs: Home | Chat | Manage | Buy
 # ---------------------------
-def render_home():
-    # Wrapper for nice centered home screen
+tabs = st.tabs(["🏠 Home", "💬 Chat", "🧰 Manage Bots", "🍭 Buy Lollipop"])
+
+# ----- Home tab -----
+with tabs[0]:
     st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
+    st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
 
-    # Header section
-    st.markdown("""
-    <div class='chat-header'>
-        <div class='title'>ChatDouble</div>
-        <div class='persona'>Bring your friends back to chat — private, personal bots from your chat exports.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Intro cards
-    st.markdown("""
-    <div class='chat-window'>
-        <div style='display:flex;gap:12px;flex-wrap:wrap;'>
-            <div class='card' style='flex:1;min-width:260px;'>
-                <h3>How it works</h3>
-                <ul style='margin-left:1em'>
-                    <li>Upload chat export (.txt)</li>
-                    <li>We extract that person’s messages and create a bot</li>
-                    <li>Chat — replies mimic their tone</li>
-                </ul>
-            </div>
-            <div class='card' style='width:320px;min-width:260px;'>
-                <h3>Quick Start</h3>
-                <ol>
-                    <li>Register / Login (sidebar)</li>
-                    <li>Upload a chat (sidebar)</li>
-                    <li>Open a bot and start chatting</li>
-                </ol>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-
-    # Interactive CTA
-    if st.button("🚀 Get Started — Login or Register"):
-        st.session_state.show_login_on_home = True
-
-    # Inline login form (hidden until clicked)
-    if st.session_state.get("show_login_on_home"):
-        st.markdown("<div class='card' style='max-width:460px;margin:20px auto;padding:16px;'>", unsafe_allow_html=True)
-        st.subheader("🔐 Quick Login / Register")
-        home_user = st.text_input("Username", key="home_login_user")
-        home_pass = st.text_input("Password", type="password", key="home_login_pass")
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("Login", key="home_login_btn"):
-                if not home_user.strip() or not home_pass.strip():
-                    st.error("⚠️ Please enter both username and password.")
-                else:
-                    if login_user(home_user, home_pass):
-                        st.session_state.logged_in = True
-                        st.session_state.username = home_user
-                        st.session_state.show_login_on_home = False
-                        st.success(f"Welcome back, {home_user}!")
-                        st.experimental_rerun()
-                    else:
-                        st.error("❌ Invalid credentials.")
-        with c2:
-            if st.button("Register", key="home_reg_btn"):
-                if not home_user.strip() or not home_pass.strip():
-                    st.error("⚠️ Please enter both username and password.")
-                else:
-                    if register_user(home_user, home_pass):
-                        st.success("✅ Registered successfully! Please log in.")
-                    else:
-                        st.error("❌ Username already exists.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("</div></div>", unsafe_allow_html=True)
-
-# Show home when not logged in
-if not st.session_state.logged_in:
-    render_home()
-    st.stop()
-
-# ---------------------------
-# User is logged in — main chat UI
-# ---------------------------
-user = st.session_state.username
-user_bots = get_user_bots(user)  # list of dicts: {"name":..., "file":...} or with persona
-
-if not user_bots:
-    st.info("You have no bots yet. Upload one in the sidebar (max 2).")
-    st.stop()
-
-# layout: left=chat main, right=bot list/controls
-col_main, col_side = st.columns([2, 0.9])
-
-with col_side:
-    st.markdown("<div class='card'><b>Your bots</b></div>", unsafe_allow_html=True)
-    for b in user_bots:
-        st.markdown(
-            f"<div style='padding:8px;margin:6px 0;border-radius:8px;background:#0d1220;display:flex;justify-content:space-between;align-items:center'><div><b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div><div style='color:#9aa3b2'>bots</div></div>",
-            unsafe_allow_html=True
-        )
-
-with col_main:
-    st.markdown("<div class='whatsapp-container'>", unsafe_allow_html=True)
-    selected_bot = st.selectbox("Select bot", [b["name"] for b in user_bots])
-
-    # tolerant get_bot_file: allow either (text, persona) or text only
-    try:
-        res = get_bot_file(user, selected_bot)
-        if isinstance(res, tuple) or isinstance(res, list):
-            bot_text, persona = res[0], (res[1] if len(res) > 1 else "")
-        else:
-            bot_text, persona = res, ""
-    except Exception:
-        # fallback
-        bot_text, persona = "", ""
-
-    if not bot_text or not bot_text.strip():
-        st.warning("This bot has no stored messages. Upload better chat data for improved replies.")
-        st.stop()
-
-    embed_model, index, bot_lines = load_faiss_index(bot_text)
-    chat_key = f"chat_{selected_bot}_{user}"
-    if chat_key not in st.session_state:
-        st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot)
-
-    # header
-    st.markdown(f"<div class='chat-header card'><div class='title'>{selected_bot}</div><div style='margin-left:auto;color:#9aa3b2'>Persona: {persona or '—'}</div></div>", unsafe_allow_html=True)
-
-    # chat window (display history)
-    st.markdown("<div class='chat-window' id='chat-window'>", unsafe_allow_html=True)
-    # ensure history shows in chronological order
-    for entry in st.session_state[chat_key]:
-        # show user message (right)
-        if entry.get("user"):
-            st.markdown(
-                f"<div class='msg-row right'><div class='msg user'>{entry['user']}<div class='small-muted' style='text-align:right;font-size:11px'>{entry.get('ts', datetime.now().strftime('%I:%M %p'))}</div></div></div>",
-                unsafe_allow_html=True
-            )
-        # show bot message (left)
-        if entry.get("bot"):
-            st.markdown(
-                f"<div class='msg-row left'><div class='msg bot'>{entry['bot']}<div class='small-muted' style='margin-top:6px'>{entry.get('ts', datetime.now().strftime('%I:%M %p'))}</div></div></div>",
-                unsafe_allow_html=True
-            )
+    st.markdown("<div class='card' style='padding:18px; margin-bottom:14px'>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin:0;color:#fff'>How it works</h3>", unsafe_allow_html=True)
+    st.markdown("<ul><li>Upload a chat export (.txt) in Manage tab</li><li>We extract that person's messages and create a bot</li><li>Chat — replies mimic their tone</li></ul>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # input
-    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-    input_col, send_col = st.columns([8,1])
-    with input_col:
+    c1, c2 = st.columns([2, 1])
+    with c2:
+        st.markdown("<div class='card'><h4>Your Quick Start</h4><ol><li>Register / Login (sidebar)</li><li>Upload a chat in Manage</li><li>Open Chat tab and select bot</li></ol></div>", unsafe_allow_html=True)
+    with c1:
+        if st.button("🚀 Get Started — Login or Register"):
+            st.session_state.show_inline_login = True
+
+    if st.session_state.show_inline_login and not st.session_state.logged_in:
+        st.markdown("<div class='card' style='max-width:480px;margin-top:18px'>", unsafe_allow_html=True)
+        st.subheader("Quick Login")
+        h_user = st.text_input("Username", key="home_user")
+        h_pass = st.text_input("Password", type="password", key="home_pass")
+        cola, colb = st.columns(2)
+        with cola:
+            if st.button("Login", key="home_login_btn"):
+                if login_user(h_user, h_pass):
+                    st.session_state.logged_in = True
+                    st.session_state.username = h_user
+                    st.success("Logged in.")
+                    st.experimental_rerun()
+                else:
+                    st.error("Invalid credentials.")
+        with colb:
+            if st.button("Register", key="home_reg_btn"):
+                if register_user(h_user, h_pass):
+                    st.success("Registered! Now login.")
+                else:
+                    st.error("Username exists.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ----- Chat tab -----
+with tabs[1]:
+    if not st.session_state.logged_in:
+        st.warning("Please log in (sidebar) to open your bots.")
+        st.stop()
+
+    user = st.session_state.username
+    try:
+        user_bots = get_user_bots(user) or []
+    except Exception as e:
+        st.error(f"Firestore error: {e}")
+        st.stop()
+
+    if not user_bots:
+        st.info("No bots found. Create one in the Manage tab.")
+        st.stop()
+
+    # Side-by-side layout: chat main and bot list
+    col_main, col_side = st.columns([2, 0.9])
+    with col_side:
+        st.markdown("<div class='card'><b>Your bots</b></div>", unsafe_allow_html=True)
+        for b in user_bots:
+            st.markdown(f"<div style='padding:8px;margin:8px 0;border-radius:8px;background:#0d1220;'><b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div>", unsafe_allow_html=True)
+
+    with col_main:
+        st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
+        selected_bot = st.selectbox("Select bot", [b["name"] for b in user_bots], key="chat_selected_bot")
+
+        # tolerant get_bot_file (support either string or (text,persona) tuple)
+        try:
+            res = get_bot_file(user, selected_bot)
+        except Exception as e:
+            st.error(f"Could not load bot: {e}")
+            st.stop()
+
+        if isinstance(res, (list, tuple)):
+            bot_text = res[0] if len(res) > 0 else ""
+            persona = res[1] if len(res) > 1 else ""
+        else:
+            bot_text = res or ""
+            persona = ""
+
+        if not bot_text.strip():
+            st.warning("This bot has no stored messages. Upload better chat data in Manage tab.")
+            st.stop()
+
+        embed_model, index, bot_lines = build_faiss_for_bot(bot_text)
+        chat_key = f"chat_{selected_bot}_{user}"
+        if chat_key not in st.session_state:
+            st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot) or []
+
+        # header
+        st.markdown(f"<div class='chat-header'><div class='title'>{selected_bot}</div><div class='subtitle'>Persona: {persona or '—'}</div></div>", unsafe_allow_html=True)
+
+        # chat window
+        st.markdown("<div class='chat-window' id='chat-window'>", unsafe_allow_html=True)
+        # render history chronologically
+        for entry in st.session_state[chat_key]:
+            ts = entry.get("ts", datetime.now().strftime("%I:%M %p"))
+            # user message
+            if entry.get("user"):
+                st.markdown(f"<div class='msg-row' style='justify-content:flex-end;'><div class='msg user'>{st.experimental_singleton(lambda x: x)(entry['user']) if False else entry['user']}<span class='ts'>{ts}</span></div></div>", unsafe_allow_html=True)
+            # bot message
+            if entry.get("bot"):
+                # error-bubble detection
+                if isinstance(entry['bot'], str) and entry['bot'].strip().startswith("⚠️"):
+                    st.markdown(f"<div class='msg-row' style='justify-content:flex-start;'><div class='msg error'>{entry['bot']}<div class='ts'>{ts}</div></div></div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div class='msg-row' style='justify-content:flex-start;'><div class='msg bot'>{entry['bot']}<span class='ts'>{ts}</span></div></div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # input row
+        st.markdown("<div class='input-row'>", unsafe_allow_html=True)
         user_input = st.text_input("Type a message...", key="chat_input")
-    with send_col:
         send = st.button("Send", key="send_btn")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if send and user_input:
-        # retrieval
-        query_vector = embed_model.encode([user_input])
-        D, I = index.search(query_vector, k=25)
-        lines = []
-        for idx in I[0]:
-            if idx < len(bot_lines):
-                line = bot_lines[idx].strip()
-                if len(line.split()) > 2:
-                    lines.append(line)
-        context = "\n".join(lines[:12])
-        if len(context) > 3000:
-            context = context[:3000]
+        if send and user_input.strip():
+            # retrieval
+            try:
+                query_vector = embed_model.encode([user_input])
+                D, I = index.search(query_vector, k=20)
+            except Exception:
+                D, I = None, [[]]
+            lines = []
+            if I is not None:
+                for idx in I[0]:
+                    if idx < len(bot_lines):
+                        candidate = bot_lines[idx].strip()
+                        if len(candidate.split()) > 2:
+                            lines.append(candidate)
+            context = "\n".join(lines[:12])
+            if len(context) > 3000:
+                context = context[:3000]
 
-        persona_block = f"Persona: {persona}\n" if persona else ""
-        # correct prompt (was accidentally overwritten in previous code)
-        prompt = f"""{persona_block}
-You are {selected_bot}, a real person who has previously chatted with the user.
-Use the same tone, slang, and style AS BEFORE. Never act like an AI assistant.
-Base your tone and vocabulary on the examples below.
+            persona_block = f"Persona: {persona}\n\n" if persona else ""
+            prompt = f"""{persona_block}You are {selected_bot}, a real person who has previously chatted with the user.
+Use the same tone, slang, and style as the examples below. Never act like an AI assistant.
 
-Examples of how {selected_bot} talks:
+Examples:
 {context}
 
 User: {user_input}
 {selected_bot}:
 """
 
-        # choose model: use larger model for longer context
-        model_name = "gemini-1.5-flash" if len(context) > 1200 else "gemini-2.0-flash"
-
-        try:
-            # legacy client: generate_content_stream(model=..., contents=...)
-            resp = genai_client.models.generate_content_stream(
-                model=model_name,
-                contents=prompt
-            )
-            # append placeholder entry so UI shows user immediately
-            ts = datetime.now().strftime('%I:%M %p')
+            # add user message to history immediately (so UI shows it)
+            ts = datetime.now().strftime("%I:%M %p")
             st.session_state[chat_key].append({"user": user_input, "bot": "...thinking", "ts": ts})
             save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
+            st.experimental_rerun()
 
-            # stream and update last message in place
-            placeholder = st.empty()
-            accumulated = ""
-            for chunk in resp:
-                # support dict-like and object-like chunk shapes
-                text = ""
-                if isinstance(chunk, dict):
-                    text = chunk.get("message", {}).get("content", "") or chunk.get("text", "") or ""
-                else:
-                    text = getattr(chunk, "text", "") or ""
-                if not text:
-                    continue
-                accumulated += text
-                # update session history last bot content
-                if st.session_state[chat_key] and isinstance(st.session_state[chat_key][-1], dict):
-                    st.session_state[chat_key][-1]["bot"] = accumulated
-                else:
-                    st.session_state[chat_key].append({"user": user_input, "bot": accumulated, "ts": ts})
-                # render current accumulated bot reply (left bubble)
-                placeholder.markdown(f"<div class='msg-row left'><div class='msg bot'>{st.session_state[chat_key][-1]['bot']}<div class='small-muted' style='margin-top:6px'>{ts}</div></div></div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-            bot_reply = st.session_state[chat_key][-1].get("bot", "")
+
+# ----- Manage Bots tab -----
+with tabs[2]:
+    if not st.session_state.logged_in:
+        st.warning("Please log in (sidebar) to manage your bots.")
+        st.stop()
+
+    user = st.session_state.username
+    st.markdown("<div class='card'><h4>Upload chat export (.txt) — max 2 bots</h4>", unsafe_allow_html=True)
+    up_file = st.file_uploader("Choose .txt file", type=["txt"], key="manage_upload")
+    up_name = st.text_input("Bot name (example: John)", key="manage_name")
+    if st.button("Upload bot", key="manage_upload_btn"):
+        try:
+            user_bots = get_user_bots(user) or []
         except Exception as e:
-            st.error(f"⚠️ Gemini error: {e}")
-            if "Error generating response" in entry.get("bot", ""):
-                st.markdown(f"<div class='msg error'>⚠️ {entry['bot']}</div>", unsafe_allow_html=True)
+            st.error(f"Could not check existing bots: {e}")
+            user_bots = []
+        if len(user_bots) >= 2:
+            st.error("You already have 2 bots. Delete one first.")
+        elif (not up_file) or (not up_name.strip()):
+            st.error("Please provide both file and name.")
+        else:
+            raw = up_file.read().decode("utf-8", "ignore")
+            bot_lines = extract_bot_lines(raw, up_name)
+            if not bot_lines.strip():
+                # fallback to storing longer lines
+                bot_lines = "\n".join([l for l in raw.splitlines() if len(l.split()) > 1])
+            persona = generate_persona("\n".join(bot_lines.splitlines()[:40]))
+            try:
+                add_bot(user, up_name.capitalize(), bot_lines, persona=persona)
+                st.success(f"Added {up_name} — persona: {persona or '—'}")
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Upload error: {e}")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Manage existing bots UI
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    st.markdown("<h4>Your bots</h4>", unsafe_allow_html=True)
+    try:
+        user_bots = get_user_bots(user) or []
+    except Exception as e:
+        st.error(f"Firestore error: {e}")
+        user_bots = []
+
+    for b in user_bots:
+        st.markdown(f"**{b['name']}** — Persona: {b.get('persona','—')}")
+        rn, dlt, clr = st.columns([1,1,1])
+        with rn:
+            new_name = st.text_input(f"Rename {b['name']}", key=f"rename_{b['name']}")
+            if st.button("Rename", key=f"rename_btn_{b['name']}"):
+                if new_name.strip():
+                    try:
+                        update_bot(user, b['name'], new_name.strip())
+                        st.success("Renamed.")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Rename error: {e}")
+                else:
+                    st.error("Enter a new name.")
+        with dlt:
+            if st.button("Delete", key=f"del_{b['name']}"):
+                try:
+                    delete_bot(user, b['name'])
+                    st.warning("Deleted.")
+                    st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"Delete error: {e}")
+        with clr:
+            if st.button("Clear history", key=f"clr_{b['name']}"):
+                try:
+                    save_chat_history_cloud(user, b['name'], [])
+                    st.success("History cleared.")
+                except Exception as e:
+                    st.error(f"Clear error: {e}")
+
+
+# ----- Buy Lollipop tab -----
+with tabs[3]:
+    st.markdown("<div class='card'><h4>Buy developer a lollipop 🍭</h4>", unsafe_allow_html=True)
+    upi_id = st.secrets.get("upi_id") if st.secrets else None
+    upi_qr_url = st.secrets.get("upi_qr_url") if st.secrets else None
+    upi_qr_b64 = st.secrets.get("upi_qr_base64") if st.secrets else None
+
+    if upi_qr_b64:
+        try:
+            img_bytes = base64.b64decode(upi_qr_b64)
+            st.image(img_bytes, width=220)
+        except Exception:
+            st.info("Invalid base64 QR in secrets.")
+    elif upi_qr_url:
+        st.image(upi_qr_url, width=220)
+    else:
+        st.info("No QR configured. Put `upi_qr_url` or `upi_qr_base64` in Streamlit secrets.")
+
+    if upi_id:
+        st.markdown(f"**UPI ID:** `{upi_id}`")
+    else:
+        st.markdown("Add `upi_id` to Streamlit secrets to show UPI ID.")
+
+    st.markdown("<div class='small-muted'>Tip: add secrets via Streamlit Cloud dashboard (Settings → Secrets) to show QR & UPI ID publicly in this tab.</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ---------------------------
+# Final: keep consistent behavior
+# ---------------------------
+# If user pressed Send inside Chat tab, we appended "...thinking" and re-ran.
+# Now, handle streaming generation (separate block that runs after rerun).
+# We detect any chat entries that have bot == "...thinking" and generate for them.
+def process_pending_generation():
+    # Only meaningful when logged in and chat selected
+    if not st.session_state.logged_in:
+        return
+    user = st.session_state.username
+    selected_key = None
+    # find any chat keys for this user that have a pending entry
+    for k in list(st.session_state.keys()):
+        if k.startswith("chat_") and k.endswith(f"_{user}"):
+            msgs = st.session_state[k]
+            if msgs and isinstance(msgs[-1], dict) and msgs[-1].get("bot") == "...thinking":
+                selected_key = k
+                break
+    if not selected_key:
+        return
+
+    # extract selected bot name
+    # format: chat_{bot}_{user}
+    try:
+        parts = selected_key.split("_")
+        # join middle parts as bot name might contain underscores
+        bot_name = "_".join(parts[1:-1])
+    except Exception:
+        return
+
+    msgs = st.session_state[selected_key]
+    pending = msgs[-1]
+    user_input = pending.get("user", "")
+    if not user_input:
+        # cleanup
+        msgs[-1]["bot"] = "⚠️ No user input found."
+        save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+        return
+
+    # prepare context using the bot file (if exists)
+    try:
+        res = get_bot_file(user, bot_name)
+        if isinstance(res, (list, tuple)):
+            bot_text = res[0]
+            persona = res[1] if len(res) > 1 else ""
+        else:
+            bot_text = res or ""
+            persona = ""
+    except Exception:
+        bot_text = ""
+        persona = ""
+
+    if not bot_text:
+        pending["bot"] = "⚠️ No bot source text available."
+        save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+        return
+
+    # build FAISS (fast cached)
+    embed_model, index, bot_lines = build_faiss_for_bot(bot_text)
+    # retrieval for extra context
+    try:
+        qvec = embed_model.encode([user_input])
+        D, I = index.search(qvec, k=20)
+    except Exception:
+        I = [[]]
+    lines = []
+    if I is not None:
+        for idx in I[0]:
+            if idx < len(bot_lines):
+                candidate = bot_lines[idx].strip()
+                if len(candidate.split()) > 2:
+                    lines.append(candidate)
+    context = "\n".join(lines[:12])
+    if len(context) > 3000:
+        context = context[:3000]
+
+    persona_block = f"Persona: {persona}\n\n" if persona else ""
+    prompt = f"""{persona_block}You are {bot_name}, a real person who has previously chatted with the user.
+Use the same tone, slang, and style as the examples below. Never act like an AI assistant.
+
+Examples:
+{context}
+
+User: {user_input}
+{bot_name}:
+"""
+
+    # generate (stream if possible)
+    if not genai_client:
+        pending["bot"] = "⚠️ Gemini API key not set. Add GEMINI_API_KEY to environment or Streamlit secrets."
+        save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+        return
+
+    # choose model conservatively
+    model_name = "gemini-2.0"  # general model; change if you prefer flash versions
+    try:
+        # use streaming if available in your genai client
+        resp_iter = genai_client.models.generate_content_stream(model=model_name, contents=prompt)
+    except Exception:
+        # fallback to single-shot
+        try:
+            resp = genai_client.models.generate_content(model=model_name, contents=prompt)
+            # extract text
+            if isinstance(resp, dict):
+                text = resp.get("message", {}).get("content", "") or ""
             else:
-                st.markdown(f"<div class='msg-row left'><div class='msg bot'>{entry['bot']}<div class='timestamp'>{entry.get('ts', datetime.now().strftime('%I:%M %p'))}</div></div></div>", unsafe_allow_html=True)
-            
+                text = getattr(resp, "text", None) or str(resp)
+            pending["bot"] = text.strip()
+            pending["ts"] = datetime.now().strftime("%I:%M %p")
+            save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+            return
+        except Exception as e:
+            pending["bot"] = f"⚠️ Error generating response: {e}"
+            pending["ts"] = datetime.now().strftime("%I:%M %p")
+            save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+            return
 
-        # persist final history and refresh UI
-        save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-        st.rerun()
+    # stream handling
+    accumulated = ""
+    try:
+        for chunk in resp_iter:
+            # chunk may be dict-like or obj-like
+            text = ""
+            if isinstance(chunk, dict):
+                text = chunk.get("message", {}).get("content", "") or chunk.get("text", "") or ""
+            else:
+                text = getattr(chunk, "text", "") or ""
+            if not text:
+                continue
+            accumulated += text
+            # update pending bot text in session
+            st.session_state[selected_key][-1]["bot"] = accumulated
+            st.session_state[selected_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
+            # persist partial (optionally)
+            save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+        # final
+        st.session_state[selected_key][-1]["bot"] = accumulated.strip()
+        st.session_state[selected_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
+        save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+    except Exception as e:
+        st.session_state[selected_key][-1]["bot"] = f"⚠️ Error generating response: {e}"
+        st.session_state[selected_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
+        save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
+        return
 
-    st.markdown("</div>", unsafe_allow_html=True)  # end whatsapp-container
 
-# EOF
+# run generation post-render (non-blocking style — runs during this request)
+process_pending_generation()
+# end of file
