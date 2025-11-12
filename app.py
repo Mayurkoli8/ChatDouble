@@ -25,116 +25,140 @@ os.makedirs("chats", exist_ok=True)
 # ---------------------------
 # CSS / Styling (WhatsApp-like)
 # ---------------------------
-st.markdown(
-    """
+st.markdown("""
 <style>
-/* hide streamlit menu/header/footer */
-#MainMenu { visibility: hidden; }
-header { visibility: hidden; }
-footer { visibility: hidden; }
+#MainMenu, header, footer {visibility:hidden;}
 
-/* page background */
+/* Background */
 [data-testid="stAppViewContainer"] {
-  background: linear-gradient(135deg,#0b0b0d,#111118);
+  background: radial-gradient(circle at top right, #121218, #0a0a0c);
   color: #e6eef8;
-  font-family: Inter, Arial, sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
-/* sidebar styling */
+/* Sidebar */
 section[data-testid="stSidebar"] > div:first-child {
-  background: linear-gradient(180deg,#0f0f12,#121217);
+  background: linear-gradient(180deg,#0e0e12,#121217);
   padding: 16px;
   border-radius: 10px;
 }
 
-/* page-level subtle divider (replaces hr) */
-.home-divider { height:1px; background:#232528; margin:18px 0; border-radius:1px; }
-
-/* chat area */
+/* Chat container */
 .whatsapp-container {
-  max-width: 980px;
-  margin: 18px auto;
+  max-width: 880px;
+  margin: 0 auto;
   background: transparent;
-  padding: 12px;
-}
-.chat-header {
-  display:flex; align-items:center; gap:12px;
-  padding: 12px 8px; margin-bottom: 6px;
-  border-radius: 10px;
-}
-.chat-header .title { font-size:20px; font-weight:700; color:#fff; }
-.chat-window {
-  background: #0f1114;
-  padding: 16px;
-  border-radius: 12px;
-  height: 60vh;
-  overflow-y: auto;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
-  display:flex;
-  flex-direction:column;
+  display: flex;
+  flex-direction: column;
+  height: 80vh;
+  justify-content: flex-end;
+  padding: 8px;
 }
 
-/* messages - left = bot, right = user */
-.msg {
-  display: block;
-  margin: 10px 0;
-  max-width: 78%;
+/* Chat header */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: linear-gradient(90deg,#141420,#0e0e12);
+  box-shadow: inset 0 0 1px #2c2c3c, 0 2px 10px rgba(0,0,0,0.5);
+  margin-bottom: 8px;
+}
+.chat-header .title {
+  font-weight: 600;
+  color: #fff;
+  font-size: 18px;
+}
+.chat-header .persona {
+  color: #aaa;
+  font-size: 13px;
+}
+
+/* Chat window */
+.chat-window {
+  background: #0c0d11;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-behavior: smooth;
+}
+
+/* Messages */
+.msg-row {
+  display: flex;
+  align-items: flex-end;
+}
+.msg.user {
+  background: linear-gradient(90deg,#25D366,#128C7E);
+  color: #fff;
   padding: 10px 14px;
-  border-radius: 18px;
-  line-height: 1.4;
+  border-radius: 18px 18px 4px 18px;
+  margin-left: auto;
+  max-width: 70%;
   font-size: 15px;
-  word-wrap: break-word;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 .msg.bot {
   background: #ffffff;
   color: #111;
-  border-bottom-left-radius: 4px;
-  align-self: flex-start;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 4px;
+  margin-right: auto;
+  max-width: 70%;
+  font-size: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
-.msg.user {
-  background: linear-gradient(90deg,#25D366,#128C7E);
-  color: white;
-  border-bottom-right-radius: 4px;
-  align-self: flex-end;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-
-/* message row */
-.msg-row { display:flex; gap:10px; align-items:flex-end; }
-.msg-row.left { justify-content:flex-start; }
-.msg-row.right { justify-content:flex-end; }
-
-/* avatar */
-.avatar {
-  width:36px; height:36px; border-radius:18px;
-  background:#666; display:inline-block;
-  flex: 0 0 36px;
+.msg.error {
+  background: #2a2a2e;
+  color: #ffae42;
+  padding: 8px 12px;
+  border-radius: 12px;
+  max-width: fit-content;
+  margin: 4px auto;
+  font-size: 13px;
+  opacity: 0.85;
 }
 
-/* input area */
+/* Timestamp */
+.timestamp {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* Input area */
 .chat-input {
-  margin-top: 12px;
-  display:flex;
-  gap:8px;
+  display: flex;
+  gap: 10px;
+  padding-top: 10px;
 }
 input.chat-text {
-  flex:1; padding:10px 12px; border-radius:12px; background:#0b0c0f; color:#fff; border:1px solid #222;
+  flex: 1;
+  background: #101117;
+  border: 1px solid #222;
+  color: white;
+  padding: 12px;
+  border-radius: 12px;
 }
 button.send-btn {
-  background:#25D366; border:none; color:#000; padding:10px 14px; border-radius:12px; font-weight:700;
-}
-
-/* small helpers */
-.small-muted { color:#9aa3b2; font-size:12px; }
-.card {
-  background: linear-gradient(180deg,#0f1720,#0b1014);
-  padding:14px; border-radius:10px; box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  background: #25D366;
+  color: black;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
 }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
+
 
 # ---------------------------
 # Helpers: parsing, persona, FAISS
@@ -509,7 +533,11 @@ User: {user_input}
             bot_reply = st.session_state[chat_key][-1].get("bot", "")
         except Exception as e:
             st.error(f"⚠️ Gemini error: {e}")
-            bot_reply = "⚠️ Error generating response."
+            if "Error generating response" in entry.get("bot", ""):
+                st.markdown(f"<div class='msg error'>⚠️ {entry['bot']}</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='msg-row left'><div class='msg bot'>{entry['bot']}<div class='timestamp'>{entry.get('ts', datetime.now().strftime('%I:%M %p'))}</div></div></div>", unsafe_allow_html=True)
+            
 
         # persist final history and refresh UI
         save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
