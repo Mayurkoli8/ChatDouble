@@ -158,25 +158,32 @@ button.send-btn { background:#25D366; color:#000; border:none; padding:10px 14px
 # ---------------------------
 # Helpers: text extraction, persona, FAISS
 # ---------------------------
-def extract_bot_lines(raw_text: str, bot_name: str) -> str:
+def extract_bot_lines(raw_text, bot_name):
     """
-    Heuristic: collect lines starting with 'Name:' (case-insensitive).
-    Fallback: include long lines ( > 3 words ).
+    Extract only that person's messages from WhatsApp-style chat exports.
+    Supports formats like:
+    12/04/2023, 5:22 pm - Raykay: message
     """
     bot_lines = []
-    name_lower = (bot_name or "").strip().lower()
+    name_lower = bot_name.strip().lower()
+
     for line in raw_text.splitlines():
-        if not line or len(line.strip()) < 2:
+        if "-" not in line or ":" not in line:
             continue
-        l = line.strip()
-        if ":" in l:
-            prefix, rest = l.split(":", 1)
-            if prefix.strip().lower() == name_lower:
-                bot_lines.append(rest.strip())
-        else:
-            if len(l.split()) > 3:
-                bot_lines.append(l)
-    bot_lines = [b for b in bot_lines if len(b.split()) > 1]
+
+        try:
+            # Example: "12/04/2023, 5:22 pm - Raykay: Hello"
+            meta, msg = line.split("-", 1)
+            speaker, content = msg.split(":", 1)
+            speaker = speaker.strip().lower()
+            content = content.strip()
+        except:
+            continue
+
+        if speaker == name_lower and len(content.split()) > 1:
+            # remove emojis or keep? keep them.
+            bot_lines.append(content)
+
     return "\n".join(bot_lines)
 
 
@@ -624,6 +631,13 @@ RULES:
 Do NOT invent names or placeholders like {{User's Name}}.
 3) If persona above is empty, infer a personality from the examples & stick to it.
 4) If you don't know a fact, ask — don't assume.
+STRICT RULES:
+- NEVER use placeholders like [User], [User's Name], {user}, <name>, or anything inside {}, [], <>.
+- NEVER guess names. ONLY use names that actually exist inside the real chat data.
+- If you do NOT know a name from the real examples, say “I don’t know, you never told me.”
+- NEVER invent formatting like **bold**, __underline__, *, ~, or any markdown.
+- NEVER use too many emojis in a reply, use them as same frequency in chat. Keep it natural, not exaggerated and hallucinated.
+- NEVER talk like an assistant or narrator. Just speak casually like in the chat data.
 
 --- Recent conversation ---
 {recent_history}
@@ -869,11 +883,13 @@ RULES:
 3) If persona is empty, infer your personality from the examples and stick to it.
 4) NEVER produce placeholders like {{User's Name}}. Use only info you know.
 5) Your tone, slang, maturity, emotions must match the examples — not generic AI tone.
-STRICT RULES ABOUT NAMES:
-- NEVER use placeholders like {{User}}, {{User's Name}}, [User], [Name], <name>, etc.
-- NEVER output anything containing {{}}, [], or <> unless they appeared naturally in the user's real chat data.
-- You must ONLY use names that actually appear in the real exported chat examples.
-- If you do NOT know someone’s name from the examples or conversation, SAY you don’t know. Do NOT invent or guess.
+STRICT RULES:
+- NEVER use placeholders like [User], [User's Name], {user}, <name>, or anything inside {}, [], <>.
+- NEVER guess names. ONLY use names that actually exist inside the real chat data.
+- If you do NOT know a name from the real examples, say “I don’t know, you never told me.”
+- NEVER invent formatting like **bold**, __underline__, *, ~, or any markdown.
+- NEVER use too many emojis in a reply, use them as same frequency in chat. Keep it natural, not exaggerated and hallucinated.
+- NEVER talk like an assistant or narrator. Just speak casually like in the chat data.
 
 --- Recent conversation ---
 {recent_history}
