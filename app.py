@@ -588,7 +588,6 @@ else:
                 st.session_state[chat_key][-1]["bot"] = reply
                 st.session_state[chat_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
                 save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-                st.session_state["chat_input_box"] = ""
                 st.rerun()
 
     # ----- Manage Bots tab -----
