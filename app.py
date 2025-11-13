@@ -632,7 +632,7 @@ Do NOT invent names or placeholders like {{User's Name}}.
 3) If persona above is empty, infer a personality from the examples & stick to it.
 4) If you don't know a fact, ask — don't assume.
 STRICT RULES:
-- NEVER use placeholders like [User], [User's Name], {user}, <name>, or anything inside {}, [], <>.
+- NEVER use placeholders like [User], [User's Name], {user}, <name>, or anything inside {{}}, [], <>.
 - NEVER guess names. ONLY use names that actually exist inside the real chat data.
 - If you do NOT know a name from the real examples, say “I don’t know, you never told me.”
 - NEVER invent formatting like **bold**, __underline__, *, ~, or any markdown.
@@ -884,7 +884,7 @@ RULES:
 4) NEVER produce placeholders like {{User's Name}}. Use only info you know.
 5) Your tone, slang, maturity, emotions must match the examples — not generic AI tone.
 STRICT RULES:
-- NEVER use placeholders like [User], [User's Name], {user}, <name>, or anything inside {}, [], <>.
+- NEVER use placeholders like [User], [User's Name], {user}, <name>, or anything inside {{}}, [], <>.
 - NEVER guess names. ONLY use names that actually exist inside the real chat data.
 - If you do NOT know a name from the real examples, say “I don’t know, you never told me.”
 - NEVER invent formatting like **bold**, __underline__, *, ~, or any markdown.
