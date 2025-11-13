@@ -290,7 +290,7 @@ with st.sidebar:
 # ---------------------------
 # Tabs: Home | Chat | Manage | Buy
 # ---------------------------
-st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>&nbsp Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='chat-header'><div class='title'>ChatDouble &nbsp&nbsp</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
     
 if not st.session_state.logged_in:
     # Unauthenticated view: show only Home
