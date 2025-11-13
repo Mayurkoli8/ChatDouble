@@ -595,7 +595,7 @@ else:
 
                 if send and user_msg.strip():
                     ts = datetime.now().strftime("%I:%M %p")
-                    st.session_state[chat_key].append({"user": user_msg, "bot": "...thinking", "ts": ts})
+                    st.session_state[chat_key].append({"user": user_msg, "bot": "...Typing", "ts": ts})
                     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
 
                     # Retrieval
@@ -606,7 +606,7 @@ else:
                     # Remove placeholder names like [User's Name], [User], \[User] etc.
                     retrieved = re.sub(r"\[.*?User.*?\]", "", retrieved)
                     retrieved = re.sub(r"\\\[.*?User.*?\\\]", "", retrieved)
-                    
+
                     # === Build recent history (all messages in this chat) ===
                     history_lines = []
                     for entry in st.session_state.get(chat_key, []):
@@ -797,7 +797,7 @@ def process_pending_generation():
     for k in list(st.session_state.keys()):
         if k.startswith("chat_") and k.endswith(f"_{user}"):
             msgs = st.session_state[k]
-            if msgs and isinstance(msgs[-1], dict) and msgs[-1].get("bot") == "...thinking":
+            if msgs and isinstance(msgs[-1], dict) and msgs[-1].get("bot") == "...typing":
                 selected_key = k
                 break
     if not selected_key:
