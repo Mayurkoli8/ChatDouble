@@ -295,7 +295,7 @@ with st.sidebar:
 # ---------------------------
 # Tabs: Home | Chat | Manage | Buy
 # ---------------------------
-    
+st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>&nbsp&nbspBring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)    
 if not st.session_state.logged_in:
     # Unauthenticated view: show only Home
     # ----- Home tab -----
@@ -338,7 +338,6 @@ if not st.session_state.logged_in:
     st.markdown("</div>", unsafe_allow_html=True)
 
 else:
-    st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>&nbsp&nbspBring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
     # Authenticated view: hide Home, show main app
     tabs = st.tabs(["💬 Chat", "🧰 Manage Bots", "🍭 Buy Lollipop"])
 # ----- Chat tab -----
@@ -348,7 +347,8 @@ else:
 
         if not user_bots:
             st.info("No bots yet. Create one in Manage tab.")
-            st.stop()
+            st.empty()
+            return
 
         col_main, col_side = st.columns([2, 0.9])
 
