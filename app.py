@@ -516,7 +516,7 @@ else:
             </html>
             """
 
-                        components_html(iframe_html, height=500, scrolling=False)
+            components_html(iframe_html, height=500, scrolling=False)
 
             # --- ensure we clear the text_input BEFORE widget is created (safe) ---
             if st.session_state.get("pending_clear", False):
