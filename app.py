@@ -714,6 +714,8 @@ User: {user_msg}
                 st.image(upi_qr_url, width=220)
             else:
                 st.info("⚠️ Invalid `upi_qr_url` format — must start with http/https (not a local path).")
+        # ✅ Show UPI ID
+        st.markdown(f"<h4>UPI ID: <code>{upi_id}</code></h4>", unsafe_allow_html=True)
     
         st.markdown("</div>", unsafe_allow_html=True)
     
