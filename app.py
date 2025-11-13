@@ -241,50 +241,50 @@ if "show_inline_login" not in st.session_state:
 # ---------------------------
 # Minimal sidebar: login/logout only
 # ---------------------------
-with st.sidebar:
-    st.markdown("<div style='display:flex;align-items:center;gap:10px;'><div style='width:44px;height:44px;border-radius:10px;background:#6c63ff;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>CD</div><div><b style='font-size:16px;color:#fff'>ChatDouble</b><div class='small-muted'>Personal chatbots from exports</div></div></div>", unsafe_allow_html=True)
-    st.markdown("---")
-    st.subheader("🔐 Account")
-    if not st.session_state.logged_in:
-        mode = st.radio("", ["Login", "Register"], index=0)
-        username_input = st.text_input("Username", key="sb_user")
-        password_input = st.text_input("Password", type="password", key="sb_pass")
-        if st.button(mode):
-            if mode == "Login":
-                if not username_input.strip() or not password_input.strip():
-                    st.error("Enter both fields.")
-                else:
-                    ok = False
-                    try:
-                        ok = login_user(username_input, password_input)
-                    except Exception as e:
-                        st.error(f"Auth error: {e}")
-                        ok = False
-                    if ok:
-                        st.session_state.logged_in = True
-                        st.session_state.username = username_input
-                        st.success(f"Welcome, {username_input}!")
-                        st.rerun()
-                    else:
-                        st.error("Invalid credentials.")
-            else:
-                try:
-                    ok = register_user(username_input, password_input)
-                except Exception as e:
-                    st.error(f"Register error: {e}")
-                    ok = False
-                if ok:
-                    st.success("Registered — please login.")
-                else:
-                    st.error("Username exists.")
-    else:
-        st.markdown(f"👋 Logged in as **{st.session_state.username}**")
-        if st.button("Logout"):
-            st.session_state.logged_in = False
-            st.session_state.username = ""
-            st.rerun()
-    st.markdown("---")
-    st.markdown("<div class='small-muted'>Pro tip: manage bots and upload files inside the Manage tab (no sidebar actions required).</div>", unsafe_allow_html=True)
+# with st.sidebar:
+#     st.markdown("<div style='display:flex;align-items:center;gap:10px;'><div style='width:44px;height:44px;border-radius:10px;background:#6c63ff;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700'>CD</div><div><b style='font-size:16px;color:#fff'>ChatDouble</b><div class='small-muted'>Personal chatbots from exports</div></div></div>", unsafe_allow_html=True)
+#     st.markdown("---")
+#     st.subheader("🔐 Account")
+#     if not st.session_state.logged_in:
+#         mode = st.radio("", ["Login", "Register"], index=0)
+#         username_input = st.text_input("Username", key="sb_user")
+#         password_input = st.text_input("Password", type="password", key="sb_pass")
+#         if st.button(mode):
+#             if mode == "Login":
+#                 if not username_input.strip() or not password_input.strip():
+#                     st.error("Enter both fields.")
+#                 else:
+#                     ok = False
+#                     try:
+#                         ok = login_user(username_input, password_input)
+#                     except Exception as e:
+#                         st.error(f"Auth error: {e}")
+#                         ok = False
+#                     if ok:
+#                         st.session_state.logged_in = True
+#                         st.session_state.username = username_input
+#                         st.success(f"Welcome, {username_input}!")
+#                         st.rerun()
+#                     else:
+#                         st.error("Invalid credentials.")
+#             else:
+#                 try:
+#                     ok = register_user(username_input, password_input)
+#                 except Exception as e:
+#                     st.error(f"Register error: {e}")
+#                     ok = False
+#                 if ok:
+#                     st.success("Registered — please login.")
+#                 else:
+#                     st.error("Username exists.")
+#     else:
+#         st.markdown(f"👋 Logged in as **{st.session_state.username}**")
+#         if st.button("Logout"):
+#             st.session_state.logged_in = False
+#             st.session_state.username = ""
+#             st.rerun()
+#     st.markdown("---")
+#     st.markdown("<div class='small-muted'>Pro tip: manage bots and upload files inside the Manage tab (no sidebar actions required).</div>", unsafe_allow_html=True)
 
 
 # ---------------------------
