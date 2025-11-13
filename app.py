@@ -416,7 +416,7 @@ else:
             }}
 
             .chat-box {{
-                height: 68vh;
+                height: 100vh;
                 overflow-y: scroll;
                 padding: 12px;
                 box-sizing: border-box;
@@ -525,28 +525,54 @@ else:
                 st.session_state["pending_clear"] = False
 
             # INPUT BAR
+            # --- INPUT BAR (fixed layout: no gap, button inline) ---
             st.markdown("""
             <style>
-            .input-bar {
+            .input-wrapper {
                 display: flex;
+                align-items: center;
                 gap: 10px;
-                margin-top: 6px;  /* reduced gap */
+                margin-top: 0px !important;   /* remove extra gap */
+                padding-top: 6px;             /* small clean spacing */
             }
-            .input-field {
+
+            .input-wrapper input {
                 flex: 1;
-            }
-            .send-btn {
-                background: #25D366;
+                height: 42px;
+                border-radius: 12px;
                 padding: 10px 14px;
-                border-radius: 10px;
-                cursor: pointer;
+                border: 1px solid #202124;
+                background: #0f1114;
+                color: white;
+                outline: none;
+            }
+
+            .send-btn-fixed {
+                background: #25D366;
                 border: none;
+                padding: 12px 16px;
+                border-radius: 12px;
+                cursor: pointer;
+                font-weight: bold;
+                font-size: 16px;
             }
             </style>
             """, unsafe_allow_html=True)
 
-            user_msg = st.text_input("Type…", key="chat_input_box", label_visibility="collapsed", placeholder="", help="")
-            send = st.button("➤", key="send_chat_btn")
+            # Place input + send button on same row exactly
+            inp_col, btn_col = st.columns([10, 1])
+
+            with inp_col:
+                user_msg = st.text_input(
+                    "",
+                    key="chat_input_box",
+                    label_visibility="collapsed",
+                    placeholder="Type…"
+                )
+
+            with btn_col:
+                send = st.button("➤", key="send_chat_btn", use_container_width=True)
+
 
             if send and user_msg.strip():
                 ts = datetime.now().strftime("%I:%M %p")
@@ -680,20 +706,11 @@ User: {user_msg}
     with tabs[2]:
         st.markdown("<div class='card'><h4>Buy developer a lollipop 🍭</h4>", unsafe_allow_html=True)
     
-        upi_id = st.secrets.get("upi_id") if st.secrets else None
-        upi_qr_url = st.secrets.get("upi_qr_url") if st.secrets else None
-        upi_qr_b64 = st.secrets.get("upi_qr_base64") if st.secrets else None
-    
-        # ✅ handle base64-encoded QR
-        if upi_qr_b64:
-            try:
-                img_bytes = base64.b64decode(upi_qr_b64)
-                st.image(img_bytes, width=220)
-            except Exception:
-                st.info("⚠️ Invalid base64 QR in secrets — please check your `upi_qr_base64` value.")
-    
+        upi_id = "kolimohit9595-1@okicici"
+        upi_qr_url = "https://raw.githubusercontent.com/Mayurkoli8/Mentesa/refs/heads/v7/qrcode.jpg"
+        
         # ✅ handle external URL QR (http/https only)
-        elif upi_qr_url and isinstance(upi_qr_url, str):
+        if upi_qr_url and isinstance(upi_qr_url, str):
             if upi_qr_url.lower().startswith("http"):
                 st.image(upi_qr_url, width=220)
             else:
