@@ -389,42 +389,158 @@ else:
             )
 
             # CHAT CARD
+            from streamlit.components.v1 import html as components_html
+
             messages = st.session_state[chat_key]
-            html_messages = ""
+
+            # Convert to a simpler format for JS
+            clean_history = []
             for m in messages:
-                ts = m.get("ts", "")
-                if m.get("user"):
-                    html_messages += f"<div class='msg-row'><div class='msg user'>{m['user']}<span class='ts'>{ts}</span></div></div>"
-                if m.get("bot"):
-                    html_messages += f"<div class='msg-row'><div class='msg bot'>{m['bot']}<span class='ts'>{ts}</span></div></div>"
+                if "user" in m:
+                    clean_history.append({"role": "user", "content": m["user"]})
+                if "bot" in m:
+                    clean_history.append({"role": "bot", "content": m["bot"]})
 
-            st.markdown(
-                f"""
-                <div class='chat-card'>
-                    <div class='chat-window' id='chat-window'>
-                        {html_messages}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            history_json = json.dumps(clean_history)
 
-            # Auto-scroll bottom
-            st.markdown("""
+            iframe_html = f"""
+            <!doctype html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+            body {{
+              margin: 0;
+              background: transparent;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+            }}
+
+            .chat-box {{
+                height: 68vh;
+                overflow-y: scroll;
+                padding: 12px;
+                box-sizing: border-box;
+                scrollbar-width: none;         /* Firefox */
+            }}
+
+            .chat-box::-webkit-scrollbar {{
+                display: none;                 /* Chrome */
+            }}
+
+            .msg {{
+                display: inline-block;
+                max-width: 80%;
+                padding: 10px 14px;
+                margin-bottom: 8px;
+                font-size: 15px;
+                border-radius: 16px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }}
+
+
+            .user {{
+                background: linear-gradient(90deg,#25D366,#128C7E);
+                color: white;
+                margin-left: auto;
+                border-radius: 16px 16px 4px 16px;
+            }}
+
+            .bot {{
+                background: white;
+                color: #111;
+                margin-right: auto;
+                border-radius: 16px 16px 16px 4px;
+            }}
+
+            @media (max-width: 600px) {{
+                .msg {{
+                display: inline-block;
+                max-width: 80%;
+                padding: 10px 14px;
+                margin-bottom: 8px;
+                border-radius: 16px;
+                font-size: 15px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }}
+
+            }}
+
+            </style>
+            </head>
+            <body>
+
+            <div id="chat" class="chat-box"></div>
+
             <script>
-            setTimeout(() => {
-                var win = document.getElementById("chat-window");
-                if (win) { win.scrollTop = win.scrollHeight; }
-            }, 50);
+            const history = {history_json};
+
+            function renderChat() {{
+                const box = document.getElementById("chat");
+                box.innerHTML = "";
+
+                history.forEach(turn => {{
+                    const row = document.createElement("div");
+                    row.style.display = "flex";
+                    row.style.marginBottom = "6px";
+                
+                    if (turn.role === "user") row.style.justifyContent = "flex-end";
+                    else row.style.justifyContent = "flex-start";
+                
+                    const bubble = document.createElement("div");
+                    bubble.className = "msg " + turn.role;
+                    bubble.textContent = turn.content;
+                
+                    row.appendChild(bubble);
+                    box.appendChild(row);
+                }});
+                
+
+                box.scrollTop = box.scrollHeight;
+                setTimeout(() => box.scrollTop = box.scrollHeight, 50);
+            }}
+
+            renderChat();
+
+            const observer = new MutationObserver(() => {{
+                const box = document.getElementById("chat");
+                box.scrollTop = box.scrollHeight;
+            }});
+            observer.observe(document.getElementById("chat"), {{ childList: true }});
+
             </script>
-            """, unsafe_allow_html=True)
+            
+
+            </body>
+            </html>
+            """
+
+            components_html(iframe_html, height=0, scrolling=False)
 
             # INPUT BAR
-            colA, colB = st.columns([9, 1])
-            with colA:
-                user_msg = st.text_input("Type…", key="chat_input_box", label_visibility="collapsed")
-            with colB:
-                send = st.button("➤", key="send_chat_btn")
+            st.markdown("""
+            <style>
+            .input-bar {
+                display: flex;
+                gap: 10px;
+                margin-top: 6px;  /* reduced gap */
+            }
+            .input-field {
+                flex: 1;
+            }
+            .send-btn {
+                background: #25D366;
+                padding: 10px 14px;
+                border-radius: 10px;
+                cursor: pointer;
+                border: none;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            user_msg = st.text_input("Type…", key="chat_input_box", label_visibility="collapsed", placeholder="", help="", )
+            send = st.button("➤", key="send_chat_btn")
 
             if send and user_msg.strip():
                 ts = datetime.now().strftime("%I:%M %p")
@@ -460,20 +576,19 @@ else:
                     reply = resp.text or "⚠️Offline (Text after sometime)."
                     
                 except Exception:
-                    # Fallback model
                     try:
                         resp = genai_client.models.generate_content(
                             model="gemini-2.0-flash",
                             contents=prompt
                         )
-                        reply = resp.text or "⚠️Offline (Text after sometime)."
-                    
+                        reply = resp.text or "⚠️Offline (Retry later)."
                     except Exception as e:
                         reply = f"⚠️ Error: {e}"
 
                 st.session_state[chat_key][-1]["bot"] = reply
                 st.session_state[chat_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
                 save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
+                st.session_state["chat_input_box"] = ""
                 st.rerun()
 
     # ----- Manage Bots tab -----
