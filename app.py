@@ -593,17 +593,21 @@ else:
                 retrieved = "\n".join([bot_lines[i] for i in idxs[0] if i < len(bot_lines)])[:2000]
 
                 prompt = f"""
-Persona: {persona}
+You are {selected_bot}, a real person who has chatted with this user before.
 
-You are {selected_bot}. You talk EXACTLY like before.
-Never act like an assistant.
-
-Examples:
+Here are some real examples of how you talk:
 {retrieved}
 
+Understand what kind of person you are and your connection with me.
+Use your natural tone, vocabulary, and emotion, personality and thoughts as seen above.
+Don't sound robotic or generic. Don't use any new slang or phrases
+that weren't in your real messages.
+
+Now continue the conversation:
 User: {user_msg}
 {selected_bot}:
 """
+
 
                 reply = "..."
 
@@ -612,14 +616,14 @@ User: {user_msg}
                         model="gemini-2.0-flash-exp",
                         contents=prompt
                     )
-                    reply = getattr(resp, "text", None) or (resp.get("message", {}).get("content", "") if isinstance(resp, dict) else "") or "⚠️Offline (Text after sometime)."
+                    reply = getattr(resp, "text", None) or (resp.get("message", {}).get("content", "") if isinstance(resp, dict) else "") or "⚠️Offline (Text after sometime)"
                 except Exception:
                     try:
                         resp = genai_client.models.generate_content(
                             model="gemini-2.0-flash",
                             contents=prompt
                         )
-                        reply = getattr(resp, "text", None) or (resp.get("message", {}).get("content", "") if isinstance(resp, dict) else "") or "⚠️Offline (Retry later)."
+                        reply = getattr(resp, "text", None) or (resp.get("message", {}).get("content", "") if isinstance(resp, dict) else "") or "⚠️Offline (Text after sometime)"
                     except Exception as e:
                         reply = f"⚠️ Error: {e}"
 
@@ -675,7 +679,7 @@ User: {user_msg}
         try:
             user_bots = get_user_bots(user) or []
         except Exception as e:
-            st.error(f"Firestore error: {e}")
+            st.error(f"Database error: {e}")
             user_bots = []
     
         for b in user_bots:
@@ -807,10 +811,11 @@ def process_pending_generation():
         context = context[:3000]
 
     persona_block = f"Persona: {persona}\n\n" if persona else ""
-    prompt = f"""{persona_block}You are {bot_name}, a real person who has previously chatted with the user.
-Use the same tone, slang, and style as the examples below. Never act like an AI assistant.
+    prompt = f"""{persona_block}You are {bot_name}, a real person who has chatted with the user before.
+Use the same tone, slang, and style as before. Never act like an AI assistant.
+Base your tone and vocabulary on the examples below.
 
-Examples:
+Examples of how {selected_bot} talks:
 {context}
 
 User: {user_input}
@@ -842,7 +847,7 @@ User: {user_input}
             save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
             return
         except Exception as e:
-            pending["bot"] = f"⚠️ Error generating response: {e}"
+            pending["bot"] = f"⚠️Offline (Text after sometime)"
             pending["ts"] = datetime.now().strftime("%I:%M %p")
             save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
             return
@@ -870,7 +875,7 @@ User: {user_input}
         st.session_state[selected_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
         save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
     except Exception as e:
-        st.session_state[selected_key][-1]["bot"] = f"⚠️ Error generating response: {e}"
+        st.session_state[selected_key][-1]["bot"] = f"⚠️Offline (Text after sometime)"
         st.session_state[selected_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
         save_chat_history_cloud(user, bot_name, st.session_state[selected_key])
         return
