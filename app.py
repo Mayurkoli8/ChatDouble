@@ -871,7 +871,7 @@ RULES:
 5) Your tone, slang, maturity, emotions must match the examples — not generic AI tone.
 STRICT RULES ABOUT NAMES:
 - NEVER use placeholders like {{User}}, {{User's Name}}, [User], [Name], <name>, etc.
-- NEVER output anything containing {}, [], or <> unless they appeared naturally in the user's real chat data.
+- NEVER output anything containing {{}}, [], or <> unless they appeared naturally in the user's real chat data.
 - You must ONLY use names that actually appear in the real exported chat examples.
 - If you do NOT know someone’s name from the examples or conversation, SAY you don’t know. Do NOT invent or guess.
 
