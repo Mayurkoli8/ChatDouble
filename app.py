@@ -295,7 +295,6 @@ with st.sidebar:
 # ---------------------------
 # Tabs: Home | Chat | Manage | Buy
 # ---------------------------
-st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>&nbsp&nbspBring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
     
 if not st.session_state.logged_in:
     # Unauthenticated view: show only Home
@@ -314,7 +313,7 @@ if not st.session_state.logged_in:
             st.session_state.show_inline_login = True
 
     if st.session_state.show_inline_login and not st.session_state.logged_in:
-        st.markdown("<div class='card' style='max-width:360px;margin-top:20px'>", unsafe_allow_html=True)
+        st.markdown("<div class='card' style='max-width:100%;margin-top:20px'>", unsafe_allow_html=True)
         st.subheader("Quick Login")
         h_user = st.text_input("Username", key="home_user")
         h_pass = st.text_input("Password", type="password", key="home_pass")
@@ -339,6 +338,7 @@ if not st.session_state.logged_in:
     st.markdown("</div>", unsafe_allow_html=True)
 
 else:
+    st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>&nbsp&nbspBring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
     # Authenticated view: hide Home, show main app
     tabs = st.tabs(["💬 Chat", "🧰 Manage Bots", "🍭 Buy Lollipop"])
 # ----- Chat tab -----
