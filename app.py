@@ -629,7 +629,7 @@ Your job is to continue chatting in the same style, tone, slang, mood, and perso
 
 STRICT RULES (follow carefully):
 
-1. **Never use placeholders** like [User], [User’s Name], { } brackets, or template text.
+1. **Never use placeholders** like [User], [User’s Name], {{ }} brackets, or template text.
 2. **Never invent facts** that are not in the conversation or the original chat history.
 3. **Never say your own name unless the user directly asks.**
 4. **Match the exact writing style from the examples**, including:
@@ -884,7 +884,7 @@ Your job is to continue chatting in the same style, tone, slang, mood, and perso
 
 STRICT RULES (follow carefully):
 
-1. **Never use placeholders** like [User], [User’s Name], { } brackets, or template text.
+1. **Never use placeholders** like [User], [User’s Name], {{ }} brackets, or template text.
 2. **Never invent facts** that are not in the conversation or the original chat history.
 3. **Never say your own name unless the user directly asks.**
 4. **Match the exact writing style from the examples**, including:
