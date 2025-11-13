@@ -290,7 +290,7 @@ with st.sidebar:
 # ---------------------------
 # Tabs: Home | Chat | Manage | Buy
 # ---------------------------
-st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
+st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>   Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
     
 if not st.session_state.logged_in:
     # Unauthenticated view: show only Home
@@ -568,6 +568,15 @@ else:
                     label_visibility="collapsed",
                     placeholder="Type…"
                 )
+            
+                st.markdown("""
+    <script>
+        setTimeout(function() {
+            const box = window.parent.document.querySelector('input[id="chat_input_box"]');
+            if (box) { box.focus(); }
+        }, 300);
+    </script>
+""", unsafe_allow_html=True)
 
             with btn_col:
                 send = st.button("➤", key="send_chat_btn", use_container_width=True)
@@ -716,7 +725,7 @@ User: {user_msg}
                 st.info("⚠️ Invalid `upi_qr_url` format — must start with http/https (not a local path).")
         # ✅ Show UPI ID
         st.markdown(f"<h4>UPI ID: <code>{upi_id}</code></h4>", unsafe_allow_html=True)
-    
+
         st.markdown("</div>", unsafe_allow_html=True)
     
     
