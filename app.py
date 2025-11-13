@@ -602,11 +602,7 @@ else:
                     vec = embed_model.encode([user_msg])
                     _, idxs = index.search(vec, k=20)
                     retrieved = "\n".join([bot_lines[i] for i in idxs[0] if i < len(bot_lines)])[:2000]
-                    import re
-                    # Remove placeholder names like [User's Name], [User], \[User] etc.
-                    retrieved = re.sub(r"\[.*?User.*?\]", "", retrieved)
-                    retrieved = re.sub(r"\\\[.*?User.*?\\\]", "", retrieved)
-
+                    
                     # === Build recent history (all messages in this chat) ===
                     history_lines = []
                     for entry in st.session_state.get(chat_key, []):
