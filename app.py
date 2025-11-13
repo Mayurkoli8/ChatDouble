@@ -516,7 +516,13 @@ else:
             </html>
             """
 
-            components_html(iframe_html, height=0, scrolling=False)
+                        components_html(iframe_html, height=500, scrolling=False)
+
+            # --- ensure we clear the text_input BEFORE widget is created (safe) ---
+            if st.session_state.get("pending_clear", False):
+                # clear the stored value (widget not yet instantiated)
+                st.session_state["chat_input_box"] = ""
+                st.session_state["pending_clear"] = False
 
             # INPUT BAR
             st.markdown("""
@@ -539,7 +545,7 @@ else:
             </style>
             """, unsafe_allow_html=True)
 
-            user_msg = st.text_input("Type…", key="chat_input_box", label_visibility="collapsed", placeholder="", help="", )
+            user_msg = st.text_input("Type…", key="chat_input_box", label_visibility="collapsed", placeholder="", help="")
             send = st.button("➤", key="send_chat_btn")
 
             if send and user_msg.strip():
@@ -553,41 +559,44 @@ else:
                 retrieved = "\n".join([bot_lines[i] for i in idxs[0] if i < len(bot_lines)])[:2000]
 
                 prompt = f"""
-    Persona: {persona}
+Persona: {persona}
 
-    You are {selected_bot}. You talk EXACTLY like before.
-    Never act like an assistant.
+You are {selected_bot}. You talk EXACTLY like before.
+Never act like an assistant.
 
-    Examples:
-    {retrieved}
+Examples:
+{retrieved}
 
-    User: {user_msg}
-    {selected_bot}:
-    """
+User: {user_msg}
+{selected_bot}:
+"""
 
                 reply = "..."
 
                 try:
                     resp = genai_client.models.generate_content(
-                    model="gemini-2.0-flash-exp",
-                    contents=prompt
-                )
-
-                    reply = resp.text or "⚠️Offline (Text after sometime)."
-                    
+                        model="gemini-2.0-flash-exp",
+                        contents=prompt
+                    )
+                    reply = getattr(resp, "text", None) or (resp.get("message", {}).get("content", "") if isinstance(resp, dict) else "") or "⚠️Offline (Text after sometime)."
                 except Exception:
                     try:
                         resp = genai_client.models.generate_content(
                             model="gemini-2.0-flash",
                             contents=prompt
                         )
-                        reply = resp.text or "⚠️Offline (Retry later)."
+                        reply = getattr(resp, "text", None) or (resp.get("message", {}).get("content", "") if isinstance(resp, dict) else "") or "⚠️Offline (Retry later)."
                     except Exception as e:
                         reply = f"⚠️ Error: {e}"
 
                 st.session_state[chat_key][-1]["bot"] = reply
                 st.session_state[chat_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
                 save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
+
+                # mark that input must be cleared on next rerun (safe)
+                st.session_state["pending_clear"] = True
+
+                # rerun so iframe re-renders with updated history and cleared input
                 st.rerun()
 
     # ----- Manage Bots tab -----
