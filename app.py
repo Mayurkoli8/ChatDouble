@@ -290,14 +290,13 @@ with st.sidebar:
 # ---------------------------
 # Tabs: Home | Chat | Manage | Buy
 # ---------------------------
-
+st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
+    
 if not st.session_state.logged_in:
     # Unauthenticated view: show only Home
     # ----- Home tab -----
     st.markdown("<div class='main-chat-container'>", unsafe_allow_html=True)
-    st.markdown("<div class='chat-header'><div class='title'>ChatDouble</div><div class='subtitle'>Bring your friends back to chat — private bots from your chat exports.</div></div>", unsafe_allow_html=True)
-
-    st.markdown("<div class='card' style='padding:18px; margin-bottom:14px'>", unsafe_allow_html=True)
+    # st.markdown("<div class='card' style='padding:18px; margin-bottom:14px'>", unsafe_allow_html=True)
     st.markdown("<h3 style='margin:0;color:#fff'>How it works</h3>", unsafe_allow_html=True)
     st.markdown("<ul><li>Upload a chat export (.txt) in Manage tab</li><li>We extract that person's messages and create a bot</li><li>Chat — replies mimic their tone</li></ul>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -310,7 +309,7 @@ if not st.session_state.logged_in:
             st.session_state.show_inline_login = True
 
     if st.session_state.show_inline_login and not st.session_state.logged_in:
-        st.markdown("<div class='card' style='max-width:480px;margin-top:18px'>", unsafe_allow_html=True)
+        st.markdown("<div class='card' style='max-width:0px;margin-top:20px'>", unsafe_allow_html=True)
         st.subheader("Quick Login")
         h_user = st.text_input("Username", key="home_user")
         h_pass = st.text_input("Password", type="password", key="home_pass")
@@ -628,7 +627,7 @@ User: {user_msg}
     # ----- Manage Bots tab -----
     with tabs[1]:
         if not st.session_state.logged_in:
-            st.warning("Please log in (sidebar) to manage your bots.")
+            st.warning("Please log in to manage your bots.")
             st.stop()
     
         user = st.session_state.username
@@ -671,7 +670,7 @@ User: {user_msg}
             user_bots = []
     
         for b in user_bots:
-            st.markdown(f"**{b['name']}** — Persona: {b.get('persona','—')}")
+            st.markdown(f"**{b['name']}** : {b.get('persona','—')}")
             rn, dlt, clr = st.columns([1,1,1])
             with rn:
                 new_name = st.text_input(f"Rename {b['name']}", key=f"rename_{b['name']}")
@@ -716,17 +715,6 @@ User: {user_msg}
             else:
                 st.info("⚠️ Invalid `upi_qr_url` format — must start with http/https (not a local path).")
     
-        # ✅ no QR configured
-        else:
-            st.info("No QR configured. Add `upi_qr_url` or `upi_qr_base64` in Streamlit secrets.")
-    
-        # ✅ UPI ID display
-        if upi_id:
-            st.markdown(f"**UPI ID:** `{upi_id}`")
-        else:
-            st.markdown("Add `upi_id` to Streamlit secrets to show UPI ID.")
-    
-        st.markdown("<div class='small-muted'>Tip: add secrets via Streamlit Cloud → Settings → Secrets to show QR & UPI ID publicly in this tab.</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
     
     
