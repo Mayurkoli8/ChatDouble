@@ -348,9 +348,9 @@ else:
         if not user_bots:
             st.info("No bots yet. Create one in Manage Bots tab.")
         else:
-                
+
             col_main, col_side = st.columns([2, 0.9])
-    
+
             # Right side bot list
             with col_side:
                 st.markdown("<div class='card'><b>Your Bots</b></div>", unsafe_allow_html=True)
@@ -360,11 +360,11 @@ else:
                         f"<b>{b['name']}</b><div class='small-muted'>{b.get('persona','')}</div></div>",
                         unsafe_allow_html=True
                     )
-    
+
             # Left side main chat
             with col_main:
                 selected_bot = st.selectbox("Select bot", [b["name"] for b in user_bots], key="chat_selected_bot")
-    
+
                 # Load bot file
                 res = get_bot_file(user, selected_bot)
                 if isinstance(res, (list, tuple)):
@@ -373,29 +373,29 @@ else:
                 else:
                     bot_text = res
                     persona = ""
-    
+
                 if not bot_text.strip():
                     st.warning("Bot has no data.")
                     st.stop()
-    
+
                 embed_model, index, bot_lines = build_faiss_for_bot(bot_text)
-    
+
                 chat_key = f"chat_{selected_bot}_{user}"
                 if chat_key not in st.session_state:
                     st.session_state[chat_key] = load_chat_history_cloud(user, selected_bot) or []
-    
+
                 # Header
                 st.markdown(
                     f"<div class='chat-header'><div class='title'>{selected_bot}</div>"
                     f"<div class='subtitle'>Persona: {persona or '—'}</div></div>",
                     unsafe_allow_html=True
                 )
-    
+
                 # CHAT CARD
                 from streamlit.components.v1 import html as components_html
-    
+
                 messages = st.session_state[chat_key]
-    
+
                 # Convert to a simpler format for JS
                 clean_history = []
                 for m in messages:
@@ -403,9 +403,9 @@ else:
                         clean_history.append({"role": "user", "content": m["user"]})
                     if "bot" in m:
                         clean_history.append({"role": "bot", "content": m["bot"]})
-    
+
                 history_json = json.dumps(clean_history)
-    
+
                 iframe_html = f"""
                 <!doctype html>
                 <html>
@@ -417,7 +417,7 @@ else:
                   background: transparent;
                   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
                 }}
-    
+
                 .chat-box {{
                     height: 100vh;
                     overflow-y: scroll;
@@ -425,11 +425,11 @@ else:
                     box-sizing: border-box;
                     scrollbar-width: none;         /* Firefox */
                 }}
-    
+
                 .chat-box::-webkit-scrollbar {{
                     display: none;                 /* Chrome */
                 }}
-    
+
                 .msg {{
                     display: inline-block;
                     max-width: 80%;
@@ -440,22 +440,22 @@ else:
                     white-space: pre-wrap;
                     word-wrap: break-word;
                 }}
-    
-    
+
+
                 .user {{
                     background: linear-gradient(90deg,#25D366,#128C7E);
                     color: white;
                     margin-left: auto;
                     border-radius: 16px 16px 4px 16px;
                 }}
-    
+
                 .bot {{
                     background: white;
                     color: #111;
                     margin-right: auto;
                     border-radius: 16px 16px 16px 4px;
                 }}
-    
+
                 @media (max-width: 600px) {{
                     .msg {{
                     display: inline-block;
@@ -467,66 +467,66 @@ else:
                     white-space: pre-wrap;
                     word-wrap: break-word;
                 }}
-    
+
                 }}
-    
+
                 </style>
                 </head>
                 <body>
-    
+
                 <div id="chat" class="chat-box"></div>
-    
+
                 <script>
                 const history = {history_json};
-    
+
                 function renderChat() {{
                     const box = document.getElementById("chat");
                     box.innerHTML = "";
-    
+
                     history.forEach(turn => {{
                         const row = document.createElement("div");
                         row.style.display = "flex";
                         row.style.marginBottom = "6px";
-                    
+
                         if (turn.role === "user") row.style.justifyContent = "flex-end";
                         else row.style.justifyContent = "flex-start";
-                    
+
                         const bubble = document.createElement("div");
                         bubble.className = "msg " + turn.role;
                         bubble.textContent = turn.content;
-                    
+
                         row.appendChild(bubble);
                         box.appendChild(row);
                     }});
-                    
-    
+
+
                     box.scrollTop = box.scrollHeight;
                     setTimeout(() => box.scrollTop = box.scrollHeight, 50);
                 }}
-    
+
                 renderChat();
-    
+
                 const observer = new MutationObserver(() => {{
                     const box = document.getElementById("chat");
                     box.scrollTop = box.scrollHeight;
                 }});
                 observer.observe(document.getElementById("chat"), {{ childList: true }});
-    
+
                 </script>
-                
-    
+
+
                 </body>
                 </html>
                 """
-    
+
                 components_html(iframe_html, height=500, scrolling=False)
-    
+
                 # --- ensure we clear the text_input BEFORE widget is created (safe) ---
                 if st.session_state.get("pending_clear", False):
                     # clear the stored value (widget not yet instantiated)
                     st.session_state["chat_input_box"] = ""
                     st.session_state["pending_clear"] = False
-    
+
                 # INPUT BAR
                 # --- INPUT BAR (fixed layout: no gap, button inline) ---
                 st.markdown("""
@@ -538,7 +538,7 @@ else:
                     margin-top: 0px !important;   /* remove extra gap */
                     padding-top: 6px;             /* small clean spacing */
                 }
-    
+
                 .input-wrapper input {
                     flex: 1;
                     height: 42px;
@@ -549,7 +549,7 @@ else:
                     color: white;
                     outline: none;
                 }
-    
+
                 .send-btn-fixed {
                     background: #25D366;
                     border: none;
@@ -561,10 +561,10 @@ else:
                 }
                 </style>
                 """, unsafe_allow_html=True)
-    
+
                 # Place input + send button on same row exactly
                 inp_col, btn_col = st.columns([10, 1])
-    
+
                 with inp_col:
                     user_msg = st.text_input(
                         "",
@@ -572,7 +572,7 @@ else:
                         label_visibility="collapsed",
                         placeholder="Type…"
                     )
-                
+
                     st.markdown("""
         <script>
             setTimeout(function() {
@@ -581,40 +581,66 @@ else:
             }, 300);
         </script>
     """, unsafe_allow_html=True)
-    
+
                 with btn_col:
                     send = st.button("➤", key="send_chat_btn", use_container_width=True)
-    
-    
+
+
                 if send and user_msg.strip():
                     ts = datetime.now().strftime("%I:%M %p")
                     st.session_state[chat_key].append({"user": user_msg, "bot": "...thinking", "ts": ts})
                     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-    
+
                     # Retrieval
                     vec = embed_model.encode([user_msg])
                     _, idxs = index.search(vec, k=20)
                     retrieved = "\n".join([bot_lines[i] for i in idxs[0] if i < len(bot_lines)])[:2000]
-    
-                    prompt = f"""
-    You are {selected_bot}, a real person who has chatted with this user before.
-    
-    Here are some real examples of how you talk:
-    {retrieved}
-    
-    Understand what kind of person you are and your connection with me.
-    Use your natural tone, vocabulary, and emotion, personality and thoughts as seen above.
-    Don't sound robotic or generic. Don't use any new slang or phrases
-    that weren't in your real messages.
-    
-    Now continue the conversation:
-    User: {user_msg}
-    {selected_bot}:
-    """
-    
-    
+
+                    # === Build recent history (all messages in this chat) ===
+                    history_lines = []
+                    for entry in st.session_state.get(chat_key, []):
+                        if "user" in entry:
+                            history_lines.append(f"User: {entry['user']}")
+                        if "bot" in entry:
+                            history_lines.append(f"{selected_bot}: {entry['bot']}")
+
+                    recent_history = "\n".join(history_lines)
+                    if len(recent_history) > 4000:
+                        recent_history = recent_history[-4000:]
+
+                    # Limit retrieved examples for safety
+                    retrieved_examples = retrieved or ""
+                    if len(retrieved_examples) > 3000:
+                        retrieved_examples = retrieved_examples[:3000]
+
+                    persona_block = f"Persona: {persona}\n\n" if persona else ""
+
+                    prompt = f"""{persona_block}
+You are a real person (not an AI) who previously chatted with the user.
+
+RULES:
+1) Use all facts found in the 'Recent conversation' below. Do NOT contradict them.
+2) Detect your real name from the examples (the text before ":" in the examples). 
+Do NOT invent names or placeholders like {{User's Name}}.
+3) If persona above is empty, infer a personality from the examples & stick to it.
+4) If you don't know a fact, ask — don't assume.
+
+--- Recent conversation ---
+{recent_history}
+
+--- Examples from real exported chat ---
+{retrieved_examples}
+
+Continue the conversation naturally, same tone and slang.
+
+User: {user_msg}
+{selected_bot}:
+"""
+
+
+
                     reply = "..."
-    
+
                     try:
                         resp = genai_client.models.generate_content(
                             model="gemini-2.0-flash-exp",
@@ -629,15 +655,15 @@ else:
                             )
                             reply = getattr(resp, "text", None) or (resp.get("message", {}).get("content", "") if isinstance(resp, dict) else "") or "⚠️Offline (Text after sometime)"
                         except Exception as e:
-                            reply = f"⚠️ Error: {e}"
-    
+                            reply = f"⚠️Offline (Try after sometime): {e}"
+
                     st.session_state[chat_key][-1]["bot"] = reply
                     st.session_state[chat_key][-1]["ts"] = datetime.now().strftime("%I:%M %p")
                     save_chat_history_cloud(user, selected_bot, st.session_state[chat_key])
-    
+
                     # mark that input must be cleared on next rerun (safe)
                     st.session_state["pending_clear"] = True
-    
+
                     # rerun so iframe re-renders with updated history and cleared input
                     st.rerun()
 
@@ -815,16 +841,47 @@ def process_pending_generation():
         context = context[:3000]
 
     persona_block = f"Persona: {persona}\n\n" if persona else ""
-    prompt = f"""{persona_block}You are {bot_name}, a real person who has chatted with the user before.
-Use the same tone, slang, and style as before. Never act like an AI assistant.
-Base your tone and vocabulary on the examples below.
+    # === Build recent history ===
+    history_lines = []
+    for entry in msgs:
+        if "user" in entry:
+            history_lines.append(f"User: {entry['user']}")
+        if "bot" in entry:
+            history_lines.append(f"{bot_name}: {entry['bot']}")
+    
+    recent_history = "\n".join(history_lines)
+    if len(recent_history) > 4000:
+        recent_history = recent_history[-4000:]
+    
+    retrieved_examples = context or ""
+    if len(retrieved_examples) > 3000:
+        retrieved_examples = retrieved_examples[:3000]
+    
+    persona_block = f"Persona: {persona}\n\n" if persona else ""
+    
+    prompt = f"""{persona_block}
+You are a real human being who has chatted with this user before.
 
-Examples of how {selected_bot} talks:
-{context}
+RULES:
+1) The 'Recent conversation' below is absolute truth — do NOT contradict any facts.
+2) Determine your own real name from the examples (the text before ":"). 
+   The UI label '{bot_name}' is NOT your real name unless examples say so.
+3) If persona is empty, infer your personality from the examples and stick to it.
+4) NEVER produce placeholders like {{User's Name}}. Use only info you know.
+5) Your tone, slang, maturity, emotions must match the examples — not generic AI tone.
+
+--- Recent conversation ---
+{recent_history}
+
+--- Real chat examples from export ---
+{retrieved_examples}
+
+Continue naturally.
 
 User: {user_input}
 {bot_name}:
 """
+
 
     # generate (stream if possible)
     if not genai_client:
